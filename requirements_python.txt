@@ -1,3 +1,8 @@
-torch
-torchaudio
 pandas
+
+# torch
+# torchaudio
+# torch / torchaudio
+# ES: Desactivado en CI para evitar instalar wheels CUDA (cu12) que agotan el disco del runner.
+# EN: Disabled in CI to avoid installing CUDA (cu12) wheels that exhaust runner disk space.
+
