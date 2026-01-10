@@ -154,7 +154,11 @@ Este proyecto se distribuye bajo la licencia [GPL-3](https://www.gnu.org/license
 
 ## 📌 Autoría y financiación
 
-**PAROLE** es un artefacto desarrollado por Daedalus Lab bajo el proyecto MULTIFLOW, financiado por el Ministerio de Ciencia, Innovación y Universidades de España.
+**PAROLE** fue desarrollado originalmente por **Daedalus Lab** como parte del proyecto **MULTIFLOW**, financiado por el Ministerio de Ciencia, Innovación y Universidades de España.
+
+Este repositorio es un **fork independiente** mantenido por **Brian Herreño Jiménez**.  
+Cualquier modificación, extensión o mantenimiento realizado en este fork **no está afiliado ni respaldado por Daedalus Lab ni por el proyecto MULTIFLOW**.
+
 
 ---
 
@@ -282,5 +286,8 @@ This project is distributed under the [GPL-3 License](https://www.gnu.org/licens
 
 ## 📌 Authorship and Funding
 
-**PAROLE** is an artifact developed by Daedalus Lab as part of the MULTIFLOW project, funded by the Ministry of Science, Innovation, and Universities of Spain.
+**PAROLE** was originally developed by **Daedalus Lab** as part of the **MULTIFLOW** project, funded by the Ministry of Science, Innovation, and Universities of Spain.
+
+This repository is an **independent fork** maintained by **Brian Herreño Jiménez**.  
+Any modifications, extensions, or maintenance performed in this fork are **not affiliated with nor endorsed by Daedalus Lab or the MULTIFLOW project**.
 
