@@ -135,8 +135,14 @@ Para más detalles, consulta el archivo [`main.yml`](.github/workflows/main.yml)
 
 ## 💬 Contactos
 
-- **Soporte técnico:** [Brian Herreño Jiménez](mailto:brian.herreno@um.es)
-- **Información del proyecto MULTIFLOW:** [Cristóbal Pagán Cánovas](mailto:cpcanovas@um.es)
+- **Responsable del fork / Dirección del proyecto:**  
+  Brian Herreño Jiménez  
+  Email: brian.herreno@gmail.com  
+
+- **Proyecto upstream (repositorio original):**  
+  daedalusLAB / PAROLE  
+  Repositorio: https://github.com/daedalusLAB/parole  
+  Contacto original: Cristóbal Pagán Cánovas (daedalusLAB)
 
 ---
 
@@ -256,8 +262,15 @@ For more details, see the [`main.yml`](.github/workflows/main.yml) file.
 
 ## 💬 Contacts
 
-- **Technical support:** [Brian Herreño Jiménez](mailto:brian.herreno@um.es)
-- **MULTIFLOW project information:** [Cristóbal Pagán Cánovas](mailto:cpcanovas@um.es)
+- **Fork maintainer / Project lead:**  
+  Brian Herreño Jiménez  
+  Email: brian.herreno@gmail.com  
+
+- **Upstream project (original repository):**  
+  daedalusLAB / PAROLE  
+  Repository: https://github.com/daedalusLAB/parole  
+  Original contact: Cristóbal Pagán Cánovas (daedalusLAB)
+
 
 ---
 
