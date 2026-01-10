@@ -1,3 +1,12 @@
+> **[2026-01-10] Silero VAD**
+>
+> **ES:** Silero VAD presenta actualmente **problemas en la instalación automática** dentro del pipeline.
+> Por este motivo, se considera **opcional** y queda **fuera del CI** por el momento.
+>
+> **EN:** Silero VAD currently shows **issues with automated installation** in the pipeline.
+> For this reason, it is treated as **optional** and **out of CI** for now.
+
+
 [➡️ English Version](#english)
 
 <p align="center">
@@ -12,8 +21,12 @@
 <p align="center">
 <a href="https://doi.org/10.5281/zenodo.15522925">
   <img src="https://zenodo.org/badge/964120256.svg" alt="DOI">
-  </a>
-  <img src="https://github.com/daedalusLAB/parole/actions/workflows/main.yml/badge.svg" alt="Test PAROLE pipeline">
+
+<a href="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml">
+  <img src="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml/badge.svg"
+       alt="PAROLE CI (Silero optional / skipped)">
+
+
 </p>
 
 > **Consulta** [CHANGELOG.md](./CHANGELOG.md) **para ver los cambios recientes.**
