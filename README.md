@@ -129,7 +129,8 @@ Este repositorio cuenta con un test automático en GitHub Actions que verifica:
 - Ejecución del script `parole.sh` sobre un vídeo de prueba
 - Verificación del archivo de salida en `.parquet`
 
-Para más detalles, consulta el archivo [`main.yml`](.github/workflows/main.yml).
+Para más detalles, consulta el archivo del workflow de CI:
+[`parole-ci.yml`](.github/workflows/parole-ci.yml).
 
 ---
 
@@ -260,7 +261,8 @@ This repository includes an automated test in GitHub Actions that checks:
 - Verification of the `.parquet` output file
 
 
-For more details, see the [`main.yml`](.github/workflows/main.yml) file.
+For more details, see the CI workflow file:
+[`parole-ci.yml`](.github/workflows/parole-ci.yml).
 
 ---
 
