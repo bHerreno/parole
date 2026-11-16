@@ -1,3 +1,5 @@
+> **Datos / Data:** El ejemplo distribuido y CI son totalmente sintéticos, sin grabaciones humanas. Los vídeos reales se procesan localmente y no se suben; las evaluaciones reales publicables se limitan a TabErrans. / The distributed example and CI are fully synthetic, with no human recordings. Real videos remain local; publishable real-data evaluations are limited to TabErrans.
+
 ## Actualización local · 2026-11-16 / Local update
 
 ### Interpolación cúbica: coherencia entre método y código
@@ -66,9 +68,50 @@ The runner reads normalized mono 16 kHz WAV with SoundFile. Torch Hub downloads
 the model on first use; the Silero `master` reference is not pinned.
 
 El CI del fork instala estas dependencias CPU, contrasta la cúbica de R con
-SciPy y comprueba la salida VAD en un vídeo. No ejecuta las pruebas de
+SciPy y comprueba la salida VAD en un vídeo sintético. No ejecuta las pruebas de
 interpolación lineal de Daedalus. / Fork CI installs CPU dependencies, checks
-R cubic results against SciPy and verifies VAD output on a video.
+R cubic results against SciPy and verifies VAD output on a synthetic video.
+
+### Ejemplo sintético trazable / Traceable synthetic example
+
+[Escuchar / Listen: synthetic_en.wav](tests/fixtures/synthetic_en.wav).
+El WAV aprobado tiene 11,0979375 s, mono PCM de 16 bits a 16 kHz. Contiene
+silencios, tonos de 220 y 440 Hz, un barrido de 180 a 360 Hz y la frase
+“This is a synthetic voice for testing Parole. One, two, three.” generada por
+la voz estándar `en-us` de eSpeak NG, sin clonación ni grabaciones humanas.
+
+[Manifest](tests/fixtures/synthetic_en.json): SHA-256, cronología, parámetros y
+versiones de generación. CI usa ese WAV fijo y comprueba su hash; no regenera
+la voz con una versión distinta del sintetizador. La receta está en
+`scripts/generate_synthetic_fixture.py`. La regeneración con las versiones
+registradas se comprobó idéntica byte a byte.
+
+**EN:** The fixed fixture contains mathematical tones, a chirp and standard
+eSpeak NG English speech. Its manifest records the checksum, timeline, settings
+and generation tools. CI verifies the fixed input, builds a black-frame video,
+checks frame alignment, the known pitches, chirp tracking and VAD on synthetic
+speech/silence, then saves only synthetic results and execution provenance.
+This is a smoke test, not a human-speech accuracy benchmark. Model loading and
+warm inference times are not benchmarked by this CI example.
+
+From the repository root / Desde la raíz del repositorio:
+
+```bash
+mkdir -p resultados
+ffmpeg -v error -f lavfi -i color=c=black:s=320x240:r=30 \
+  -i tests/fixtures/synthetic_en.wav -c:v mpeg4 -q:v 5 -pix_fmt yuv420p \
+  -c:a aac -b:a 128k -shortest resultados/synthetic_en.mp4
+bash scripts/parole.sh resultados/synthetic_en.mp4 resultados --parquet
+env/pyenv/bin/python tests/validate_synthetic_output.py
+```
+
+La validación requiere las dependencias de Silero descritas arriba y
+`env/pyenv/bin/python -m pip install -r requirements_test.txt`.
+Regeneración opcional (requiere eSpeak NG y FFmpeg):
+`python scripts/generate_synthetic_fixture.py --output resultados/regenerated.wav`.
+El WAV original se mantiene fijo; los resultados y vídeos generados permanecen
+en `resultados/`, excluido de Git. Todas las rutas anteriores son relativas al
+repositorio. No hay rutas personales ni vídeos reales necesarios para CI.
 
 [➡️ English Version](#english)
 
@@ -113,10 +156,10 @@ Este documento incluye fundamentos teóricos, justificación metodológica, y de
 ## 📁 Estructura del Proyecto
 
 ```
-├── data
-│   └── videos
-│       ├── video_ejemplo1.mp4
-│       └── video_ejemplo2.mp4
+├── tests
+│   └── fixtures
+│       ├── synthetic_en.wav
+│       └── synthetic_en.json
 ├── images 
 │   └── logo_parole.png
 ├── install_parole.sh
@@ -152,7 +195,8 @@ Esto creará los entornos de Python y R necesarios, instalará Praat barren 6.4.
 ### Procesar un único vídeo
 
 ```bash
-./scripts/parole.sh data/videos/tu_video.mp4 resultados/ --parquet
+mkdir -p resultados
+./scripts/parole.sh "ruta/a/mi_video.mp4" resultados/ --parquet
 ```
 
 ### Procesar múltiples vídeos (batch)
@@ -189,7 +233,7 @@ Este proyecto requiere las siguientes herramientas y librerías en distintos ent
 Este repositorio cuenta con un test automático en GitHub Actions que verifica:
 
 - Instalación del entorno completo (Python, R, Praat)
-- Ejecución del script `parole.sh` sobre un vídeo de prueba
+- Ejecución del script `parole.sh` sobre el vídeo sintético de prueba
 - Verificación del archivo de salida en `.parquet`
 
 Para más detalles, consulta el archivo del workflow de CI:
@@ -246,10 +290,10 @@ Cualquier modificación, extensión o mantenimiento realizado en este fork **no 
 ## 📁 Project Structure
 
 ```
-├── data
-│   └── videos
-│       ├── video_ejemplo1.mp4
-│       └── video_ejemplo2.mp4
+├── tests
+│   └── fixtures
+│       ├── synthetic_en.wav
+│       └── synthetic_en.json
 ├── images
 │   └── logo_parole.png
 ├── install_parole.sh
@@ -285,7 +329,8 @@ This will set up necessary Python and R environments, install Praat barren 6.4.6
 ### Single video processing
 
 ```bash
-./scripts/parole.sh data/videos/your_video.mp4 resultados/ --parquet
+mkdir -p resultados
+./scripts/parole.sh "path/to/my_video.mp4" resultados/ --parquet
 ```
 
 ### Batch video processing
@@ -320,7 +365,7 @@ This project requires the following tools and libraries across different environ
 This repository includes an automated test in GitHub Actions that checks:
 
 - Installation of the full environment (Python, R, Praat)
-- Execution of the `parole.sh` script on a test video
+- Execution of the `parole.sh` script on the synthetic test video
 - Verification of the `.parquet` output file
 
 

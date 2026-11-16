@@ -8,6 +8,11 @@
 | **Pin Praat barren 6.4.60.** Download from the official historical GitHub release for Linux Intel64/ARM64 and verify the local binary version instead of discovering the latest release. | **Fijar Praat barren 6.4.60.** Descarga histórica oficial para Linux Intel64/ARM64 y verificación de la versión local, sin búsqueda de la última release. |
 | **Restore optional local CPU VAD.** Document CPU and runtime requirements; decode normalized WAV through SoundFile to avoid the TorchCodec requirement. Keep CSV headers when no speech is detected. | **Recuperar VAD local opcional en CPU.** Documenta requisitos CPU y de ejecución; lee WAV normalizado con SoundFile para evitar TorchCodec. Conserva cabeceras CSV cuando no se detecta voz. |
 
+### Data policy / Política de datos · 2026-11-16
+
+- Distribute only a fully synthetic English WAV with a checksum, generation recipe and timeline. CI builds its video locally and checks known tones, frame alignment and synthetic speech VAD. Real videos are not distributed; real-data evaluations remain limited to TabErrans.
+- Se distribuye solo un WAV sintético en inglés con hash, receta y cronología. CI genera su vídeo localmente y comprueba tonos, alineación y VAD sintético. No se distribuyen vídeos reales; las evaluaciones reales se limitan a TabErrans.
+
 ### Added / Añadido · 2026-11-16
 
 | EN | ES |

@@ -49,39 +49,32 @@ jobs:
       - name: Verify Fritsch-Butland cubic interpolation
         run: env/pyenv/bin/python -m pytest tests/ -v -s
 
-      # 6) Ejecutar un vídeo de prueba por la pipeline
-      - name: 🧪 Run test video through PAROLE
+      - name: Verify synthetic input checksum
+        run: |
+          python - <<'PYCODE'
+          import hashlib, json
+          from pathlib import Path
+          p = Path("tests/fixtures/synthetic_en.wav")
+          expected = json.loads(p.with_suffix(".json").read_text())["sha256"]
+          assert hashlib.sha256(p.read_bytes()).hexdigest() == expected
+          PYCODE
+
+      - name: Run synthetic English example through PAROLE
         run: |
           mkdir -p resultados
-          chmod +x scripts/parole.sh
-          ./scripts/parole.sh \
-            data/videos/2016-01-01_0000_US_KNBC_The_Ellen_DeGeneres_Show_91.07-95.45_today.mp4 \
-            resultados/ --parquet
+          ffmpeg -v error -f lavfi -i color=c=black:s=320x240:r=30 \
+            -i tests/fixtures/synthetic_en.wav -c:v mpeg4 -q:v 5 -pix_fmt yuv420p \
+            -c:a aac -b:a 128k -shortest resultados/synthetic_en.mp4
+          bash scripts/parole.sh resultados/synthetic_en.mp4 resultados --parquet
 
-      # 7) Verificar que el Parquet no esté vacío ni lleno de NA
-      - name: 🔍 Validate Parquet content
-        run: |
-          env/pyenv/bin/python - <<'PY'
-          import pathlib, sys, pyarrow.parquet as pq
+      - name: Validate known tones, frame alignment and synthetic speech VAD
+        run: env/pyenv/bin/python tests/validate_synthetic_output.py
 
-          p = pathlib.Path("resultados") / \
-              "2016-01-01_0000_US_KNBC_The_Ellen_DeGeneres_Show_91.07-95.45_today" / \
-              "2016-01-01_0000_US_KNBC_The_Ellen_DeGeneres_Show_91.07-95.45_today_prosody.parquet"
-
-          if not p.exists():
-              sys.exit(f"Parquet no encontrado: {p}")
-
-          tbl = pq.read_table(p)
-
-          if tbl.num_rows == 0:
-              sys.exit("Parquet vacío (0 filas)")
-
-          if all(col.null_count == tbl.num_rows for col in tbl.itercolumns()):
-              sys.exit("Todas las columnas son NA")
-
-          for column in ("vad",):
-              if column not in tbl.column_names or tbl[column].null_count:
-                  sys.exit(f"Missing or null {column}: pipeline did not run completely")
-
-          print(f"✔ Parquet válido: {tbl.num_rows} filas, {tbl.num_columns} columnas")
-          PY
+      - name: Save synthetic results and provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-parole-results
+          path: |
+            resultados/synthetic_en/synthetic_en_prosody.parquet
+            resultados/synthetic_validation.json
+          if-no-files-found: error
