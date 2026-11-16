@@ -1,4 +1,18 @@
-# PAROLE
+<p align="center">
+  <img src="../images/logo_parole.png" alt="PAROLE logo" width="50%">
+</p>
+
+<h1 align="center">PAROLE</h1>
+<p align="center">Extracción automática de prosodia del habla</p>
+
+<p align="center">
+  <a href="https://doi.org/10.5281/zenodo.15522925">
+    <img src="https://zenodo.org/badge/964120256.svg" alt="DOI">
+  </a>
+  <a href="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml">
+    <img src="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml/badge.svg" alt="PAROLE CI (cubic interpolation and CPU VAD)">
+  </a>
+</p>
 
 Extrae medidas prosódicas y actividad de voz de vídeo MP4 o audio WAV mediante Praat, FFmpeg, R y Silero VAD opcional.
 
