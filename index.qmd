@@ -1,18 +1,13 @@
-# Preámbulo: Vaciar antes de estructurar
+# Preface: making room before building structure
 
-"Antes de escribir sobre Parole —sobre lo que es, cómo se construyó y qué pretende—, necesito vaciar algo. No de contenido, sino de carga.  
-Después de días de ideas cruzadas, revisiones, dudas sobre autoría, miedo a que la IA opaque el criterio, miedo a parecer un fraude… lo que queda es claridad.  
-Y esa claridad no viene sola: necesita espacio.
+"Before writing about Parole—what it is, how it was built, and what it aims to do—I need to set something down. Not its content, but its weight.
+After days of intersecting ideas, revisions, doubts about authorship, fear that AI might overshadow judgment, and fear of seeming like a fraud, what remains is clarity.
+And clarity needs room.
 
-Escribir, como programar, es un acto técnico.  
-Pero también es emocional.  
-Y si no lo reconocemos, el informe se convierte en una extensión de lo que no dijimos.
+Writing, like programming, is a technical act.
+It is also an emotional one.
+If we fail to acknowledge that, the report becomes an extension of what we left unsaid.
 
-Así que este documento empieza por lo que no va a estar en él. Lo que ya fue dicho, pensado, descargado. Lo que me permite ahora sí, escribir desde el lenguaje y no desde la ansiedad."
+This document therefore begins with what will not be in it: what has already been said, considered, and set down. What now allows me to write from language rather than anxiety."
 
-*por GPT*
-
-
-
-
-
+*By GPT; English translation of the original preface.*

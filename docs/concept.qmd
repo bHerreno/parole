@@ -1,0 +1,49 @@
+# What is Parole?
+
+Defining Parole from a single field of study would be insufficient to explain a tool that serves several purposes, both technical and linguistic.
+
+Parole is a functional speech-analysis system designed to connect existing processing modules. It extracts audio from video, measures acoustic tracks with Praat [@boersma_praat_2025], reconstructs prosodic curves using cubic interpolation, and evaluates them at video-frame timestamps. It also includes a `vad` variable from Silero to identify intervals of detected speech.
+
+The concept of *parole* has both technical and linguistic roots. The original motivation addressed two related questions:
+
+- Technically, how should missing values (`NA`) be handled?
+- Linguistically, how should discrete observations represent phenomena that unfold continuously in time?
+
+From a linguistic perspective, Parole makes it possible to organize prosodic data into synchronized temporal columns. It does not reconstruct words: it processes acoustic measurements from the same audio that a listener hears. Interpolated values remain estimates; a continuous physical signal does not guarantee that every acoustic variable is measurable at every instant.
+
+Audio sampling provides many observations per unit of time. At 44.1 kHz, for example, the recording contains 44,100 waveform samples per second. Acoustic measurements derived from those samples can then be aligned with a temporal grid suitable for audiovisual analysis. The current pipeline retains the detected input sample rate for Praat and separately resamples audio to 16 kHz for Silero.
+
+## Automation and scale
+
+Automation increases the number of samples that can be processed. Fields such as genetics have developed entire families of *omics* from large datasets. Language is similarly abundant in everyday life and in audiovisual recordings.
+
+Obtaining enough observations to model language has often been expensive, both in material resources and in the repetitive work required of junior staff and students to extract a small fraction of the available information.
+
+Automating data generation allows an individual researcher or a small group to study more cases, depend less on repetitive manual labor, and document procedures more consistently. Reproducibility remains a central concern [@Ioannidis_2005].
+
+Missing raw data can also undermine reproducibility. In an editorial account, more than 97% of 41 manuscripts selected for a request for raw data were withdrawn or rejected without providing sufficient supporting data [@Miyakawa_2020]. This describes that selected group of manuscripts, rather than all scientific publications.
+
+Parole exports acoustic measurements and aligned estimates in open formats such as CSV and Parquet. These outputs support inspection, sample reuse, and transparent reporting of analysis choices.
+
+## Making the procedure explicit
+
+Automation requires explaining a procedure to a machine in a formal language. The researcher can then focus on designing and examining that procedure instead of repeatedly carrying out individual steps.
+
+Parole follows this approach. Its purpose is to prepare acoustic measurements for analysis rather than supply a linguistic interpretation. Its numerical processing, including interpolation, still involves assumptions that must be considered when interpreting results.
+
+The primary organizing criterion is time. Words and phonemes are not required as predefined segmentation units. A researcher may add those categories later; the pipeline does not assume them in advance.
+
+This treats time as the common physical dimension of prosody. Linguistic segmentation can then be related to a measurable acoustic basis rather than built into the extraction procedure itself. The research question determines how that temporal stream should be interpreted as language.
+
+## Voice activity as a temporal variable
+
+The logical `vad` variable indicates whether a timestamp falls within a speech interval detected by Silero. It illustrates how another time-based measurement can be aligned with acoustic tracks.
+
+Researchers can use it to select speech intervals or investigate discrepancies between the detector and the acoustic measurements. VAD is a model prediction, not a guarantee of clean speech, and the pipeline does not automatically remove rows classified as non-speech.
+
+Parole therefore:
+
+- Automates extraction and processing of prosodic data.
+- Supports analysis of larger collections of recordings.
+- Aligns prosodic measurements with other time-based variables.
+- Makes the processing procedure available for reproduction and scrutiny.

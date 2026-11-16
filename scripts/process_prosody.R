@@ -1,20 +1,20 @@
 #!/usr/bin/env Rscript
 
-# PAROLE: Script para procesado prosódico de voz
+# PAROLE: Speech prosody processing script
 # Copyright (C) 2025-2026 Brian Herreño Jiménez & Cristóbal Pagán Cánovas
 #
-# Distribuido bajo los términos de la GNU General Public License v3 o superior.
-# Ver el archivo LICENSE en el repositorio para más información.
+# Distributed under the GNU General Public License v3 or later.
+# See the repository LICENSE file for details.
 
 # -------------------------------------------------------------
-# Asegurar que 'arrow' esté instalado, única dependencia externa
+# Ensure that 'arrow', the only external R dependency, is installed
 # -------------------------------------------------------------
 if (!requireNamespace("arrow", quietly = TRUE)) {
-  stop("El paquete 'arrow' es necesario para escribir archivos Parquet. Instálalo con install.packages('arrow')")
+  stop("The 'arrow' package is required to write Parquet files. Install it with install.packages('arrow')")
 }
 
 # -------------------------------------------------------------
-# Cargar 'parallel' de la base de R (no requiere instalación extra)
+# Load 'parallel', included with R (no additional installation required)
 # -------------------------------------------------------------
 suppressWarnings(suppressMessages({
   library(parallel)
@@ -23,37 +23,37 @@ suppressWarnings(suppressMessages({
 #######################################################################
 # process_prosody.R
 #
-# Uso:
+# Usage:
 #   Rscript process_prosody.R <input_dir> <out_file> <mode>
 #
-# Donde:
-#   - <input_dir>: carpeta con:
-#       - Archivos .Pitch, .Formant, etc. de Praat
-#       - CSV de timestamps (_frame_timestamps.csv) [solo en modo video]
-#       - (Opcional) CSV de Silero (_silero_segments.csv)
-#   - <out_file>: Nombre del archivo de salida (p.ej. .csv o .parquet)
-#   - <mode>: "video" o "audio"
+# Where:
+#   - <input_dir>: directory containing:
+#       - Praat .Pitch, .Formant and related files
+#       - Timestamp CSV (_frame_timestamps.csv) [video mode only]
+#       - (Optional) Silero CSV (_silero_segments.csv)
+#   - <out_file>: Output filename (e.g. .csv or .parquet)
+#   - <mode>: "video" or "audio"
 #
 #######################################################################
 
-# --- 0. Parseo de argumentos ---
+# --- 0. Parse arguments ---
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 3) {
-  stop("Uso: Rscript process_prosody.R <input_dir> <out_file> <mode: video|audio>", call. = FALSE)
+  stop("Usage: Rscript process_prosody.R <input_dir> <out_file> <mode: video|audio>", call. = FALSE)
 }
 input_dir <- args[1]
 out_file  <- args[2]
 mode      <- tolower(args[3])
 
 if (!mode %in% c("video", "audio")) {
-  stop("El tercer argumento debe ser 'video' o 'audio'.", call. = FALSE)
+  stop("The third argument must be 'video' or 'audio'.", call. = FALSE)
 }
 
-# Número máximo de formantes
+# Maximum number of formants
 max_formants <- 5
 
 #######################################################################
-# 1. Sub-funciones de parseo: Pitch, Intensity, Formant, etc.
+# 1. Parsing helpers: Pitch, Intensity, Formant and related objects
 #######################################################################
 parse_praat_pitch <- function(files) {
   if (length(files) == 0) return(NULL)
@@ -213,7 +213,7 @@ parse_praat_pointprocess <- function(files) {
 }
 
 #######################################################################
-# 2. Parsear todo en paralelo
+# 2. Parse all tracks in parallel
 #######################################################################
 parse_all_tasks_in_parallel <- function(dir, max_formants = 5) {
   pitch_files        <- list.files(dir, pattern = "\\.Pitch$",        full.names = TRUE)
@@ -236,7 +236,7 @@ parse_all_tasks_in_parallel <- function(dir, max_formants = 5) {
 }
 
 #######################################################################
-# 3. Utilidades
+# 3. Utilities
 #######################################################################
 # Load the explicitly named Fritsch–Butland implementation (not stats::fmm).
 script_arg <- grep("^--file=", commandArgs(), value = TRUE)[1]
@@ -265,27 +265,27 @@ build_audio_time_grid <- function(prosody_data) {
   candidate_times <- sort(unique(candidate_times[!is.na(candidate_times)]))
 
   if (length(candidate_times) == 0) {
-    stop("❌ No se pudieron inferir tiempos prosódicos para modo audio.")
+    stop("❌ Could not infer prosodic timestamps for audio mode.")
   }
 
   data.frame(time = candidate_times)
 }
 
 #######################################################################
-# 4. Cargar datos auxiliares
+# 4. Load auxiliary data
 #######################################################################
 
-# Parsear prosodia primero
+# Parse prosody first
 prosody_data <- parse_all_tasks_in_parallel(input_dir, max_formants)
 
-# Timestamps solo en modo video
+# Timestamps are used only in video mode
 df_timestamps <- NULL
 if (mode == "video") {
   timestamps_csv <- list.files(input_dir, pattern = "_frame_timestamps\\.csv$", full.names = TRUE)
   if (length(timestamps_csv) == 0) {
-    stop("❌ No se encontró '_frame_timestamps.csv' en ", input_dir)
+    stop("❌ No '_frame_timestamps.csv' found in ", input_dir)
   } else if (length(timestamps_csv) > 1) {
-    warning("⚠️ Se encontró más de un CSV de timestamps. Usando el primero:\n", timestamps_csv[1])
+    warning("⚠️ Multiple timestamp CSV files found. Using the first:\n", timestamps_csv[1])
   }
   timestamps_csv <- timestamps_csv[1]
 
@@ -293,21 +293,21 @@ if (mode == "video") {
   row.names(df_timestamps) <- NULL
 }
 
-# CSV de Silero
+# Silero CSV
 silero_csv_path <- list.files(input_dir, pattern = "_silero_segments\\.csv$", full.names = TRUE)
 df_silero <- if (length(silero_csv_path) == 1) {
   read.csv(silero_csv_path, stringsAsFactors = FALSE)
 } else {
   if (length(silero_csv_path) > 1) {
-    warning("⚠️ Hay más de un archivo '_silero_segments.csv'. Usando el primero.")
+    warning("⚠️ Multiple '_silero_segments.csv' files found. Using the first.")
   } else {
-    warning("❌ Silero VAD no encontrado. Se omite.")
+    warning("❌ Silero VAD not found. Skipping it.")
   }
   NULL
 }
 
 #######################################################################
-# 5. Construir df_final según el modo
+# 5. Build df_final for the selected mode
 #######################################################################
 if (mode == "video") {
   df_final <- df_timestamps
@@ -319,7 +319,7 @@ if (mode == "video") {
 target_times <- df_final$time
 
 #######################################################################
-# 6. Interpolar variables prosódicas
+# 6. Interpolate prosodic variables
 #######################################################################
 
 # 6a. Pitch
@@ -413,18 +413,18 @@ if (!is.null(df_silero) && all(c("start", "end") %in% names(df_silero))) {
 }
 
 #######################################################################
-# 7. Guardar en CSV o Parquet
+# 7. Save as CSV or Parquet
 #######################################################################
 out_path <- file.path(input_dir, out_file)
 
 if (grepl("\\.parquet$", tolower(out_file))) {
   arrow::write_parquet(df_final, out_path)
-  message("✅ Proceso completado. Archivo Parquet guardado en: ", out_path)
+  message("✅ Processing complete. Parquet file saved to: ", out_path)
 } else if (grepl("\\.csv$", tolower(out_file))) {
   write.csv(df_final, out_path, row.names = FALSE)
-  message("✅ Proceso completado. CSV final guardado en: ", out_path)
+  message("✅ Processing complete. Final CSV saved to: ", out_path)
 } else {
-  warning("⚠️ Extensión de archivo no reconocida. Se guarda como CSV por defecto.")
+  warning("⚠️ Unrecognized file extension. Saving as CSV by default.")
   write.csv(df_final, out_path, row.names = FALSE)
-  message("✅ Proceso completado. Archivo guardado como CSV en: ", out_path)
+  message("✅ Processing complete. File saved as CSV to: ", out_path)
 }

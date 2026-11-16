@@ -1,0 +1,76 @@
+# Installing Parole
+
+The installer prepares the Python and R environments, checks system tools, and installs a verified local copy of **Praat barren 6.4.60**.
+
+## Prerequisites
+
+Install Python 3 with pip and venv, R, FFmpeg/ffprobe, curl and tar. The installer targets Linux x86-64 and ARM64. Building R dependencies may require development libraries; the repository's CI workflow provides a tested Ubuntu configuration.
+
+Internet access is needed to download packages and the pinned Praat build. The first Silero run also downloads its model unless it is already cached.
+
+## Installation steps
+
+### Clone this branch
+
+```bash
+git clone --branch projects/english https://github.com/bHerreno/parole.git
+cd parole
+```
+
+### Run the installer
+
+Run commands from the repository root:
+
+```bash
+bash install_parole.sh
+```
+
+The installer checks `ffmpeg`, `ffprobe` and `Rscript`. If system dependencies are missing, it reports them and asks whether to continue. Continuing does not make the missing tools available: install them before running the corresponding processing stages.
+
+### Pinned local Praat
+
+The installer downloads **Praat barren 6.4.60** from its official historical GitHub release and checks the executable's reported version. The pipeline uses this local binary even if another Praat version is installed system-wide.
+
+- Files are installed under `env/praat/`.
+- The executable is linked as `env/praat/praat`.
+- An existing local copy of the required version is reused.
+- A failed download or version check stops installation of that build.
+
+### Python environment
+
+The installer creates `env/pyenv/` and installs the base dependencies from `requirements_python.txt`. If the environment already exists, it asks whether to keep or recreate it.
+
+For optional Silero VAD on CPU, install its requirements in that same environment:
+
+```bash
+env/pyenv/bin/python -m pip install -r requirements_silero_cpu.txt
+env/pyenv/bin/python -m pip install -r requirements_silero_local.txt
+```
+
+The CPU requirements pin torch and torchaudio to 2.9.1. SoundFile reads the normalized mono WAV supplied by the pipeline. The model itself currently follows the `master` reference on Torch Hub; it is not pinned to a model release.
+
+### R library
+
+The installer creates `env/Rlibs/`, writes a local `.Renviron` pointing to that directory, and installs Arrow and the other packages requested by the installer. It can recreate an existing library when requested.
+
+The processing script requires Arrow for Parquet output. Parallel parsing uses R's bundled `parallel` package.
+
+## First run
+
+Create an output directory and process your own MP4 or WAV:
+
+```bash
+mkdir -p output
+bash scripts/parole.sh path/to/video.mp4 output --parquet
+bash scripts/parole.sh path/to/audio.wav output
+```
+
+CSV is the default; `--parquet` selects Parquet. The fixed synthetic WAV in `tests/fixtures/` is available for a reproducible example without human recordings.
+
+## Troubleshooting
+
+- **Praat is unavailable:** check that `env/praat/praat` exists and is executable. The runner adds this directory to `PATH`.
+- **R package installation fails:** check network access, required system development libraries, and write permissions for `env/Rlibs/`.
+- **Python packages cannot be imported:** install them with `env/pyenv/bin/python -m pip`, using the same environment as the runner.
+- **Silero cannot download its model:** check internet access and the Torch Hub cache location.
+- **Custom environments:** examine `install_parole.sh` and the runner's environment paths before adapting them.

@@ -1,0 +1,128 @@
+# Basic usage
+
+After installation, Parole processes MP4 videos into prosodic datasets aligned with video frames. It also accepts WAV audio, using an acoustic time grid instead of frame timestamps.
+
+## Process one recording
+
+```bash
+mkdir -p output
+bash scripts/parole.sh path/to/video.mp4 output --parquet
+```
+
+The first argument is the input recording; the second is the output directory. Omit `--parquet` to write CSV instead. Quote paths that contain spaces.
+
+For audio-only input:
+
+```bash
+bash scripts/parole.sh path/to/audio.wav output
+```
+
+## What happens during processing?
+
+1. The runner prepares output directories and filenames.
+2. FFmpeg creates mono PCM audio at the detected input sample rate for Praat, and a separate 16 kHz version for Silero. The fallback sample rate is 44.1 kHz.
+3. Silero detects speech intervals, Praat extracts acoustic tracks, and ffprobe obtains video-frame timestamps. These stages run in parallel.
+4. R parses the acoustic files and evaluates cubic interpolants on the target time grid. VAD intervals are mapped to that grid as Boolean values.
+5. R writes a single CSV or Parquet dataset.
+6. The runner removes intermediate acoustic files, temporary WAVs, and timestamp/VAD CSVs, retaining the final dataset.
+
+## Output structure
+
+```text
+output/
+ └── VIDEO_NAME/
+      └── VIDEO_NAME_prosody.csv
+```
+
+With `--parquet`, the final filename is `VIDEO_NAME_prosody.parquet`.
+
+## Output variables
+
+| Field | Contents |
+|:--|:--|
+| `frame_id` | Zero-based frame identifier in video mode. |
+| `frame_timestamp` | Frame presentation time in seconds, in video mode. |
+| `time` | Target time used for acoustic alignment. |
+| `pitch` | Interpolated fundamental frequency in Hz. |
+| `intensity_pitch`, `strength_pitch` | Values from Praat's pitch track. |
+| `intensity` | Interpolated intensity in dB. |
+| `harmonicity` | Interpolated harmonic-to-noise measurement in dB. |
+| `formant.1_frequency` … `formant.5_frequency` | Interpolated formant frequencies in Hz. |
+| `formant.1_bandwidth` … `formant.5_bandwidth` | Interpolated formant bandwidths in Hz. |
+| `vad` | Whether the target time falls within a detected speech interval; `NA` if unavailable. |
+
+PointProcess events are parsed and can contribute to the audio-only time grid; the current final dataset does not expose a separate `glottals` column. Output column names are preserved in this branch for compatibility.
+
+Missing or insufficient acoustic tracks can produce `NA`. The current cubic method also estimates values across gaps and beyond measured endpoints; these estimates must not be confused with additional observations.
+
+## Example
+
+Using your own recording:
+
+```bash
+bash scripts/parole.sh examples/my_test_video.mp4 output
+```
+
+This creates `output/my_test_video/my_test_video_prosody.csv`.
+
+The repository's fixed synthetic audio can be processed directly:
+
+```bash
+bash scripts/parole.sh tests/fixtures/synthetic_en.wav output
+```
+
+See the README for the complete synthetic video procedure used by CI.
+
+## Batch processing
+
+The batch runner recursively finds `.mp4` files and invokes `parole.sh` for each one:
+
+```bash
+bash scripts/parole_batch.sh path/to/videos output --parquet
+```
+
+The first argument is the video directory, the second is the output directory, and the optional third argument selects Parquet instead of CSV.
+
+If one recording fails, the batch runner reports the failure and continues with the others. At the end it prints the numbers of successful and failed recordings. Batch discovery currently supports MP4; WAV files can be passed individually to `parole.sh`.
+
+## General notes
+
+- Video alignment uses the actual timestamps reported by ffprobe rather than assuming a constant frame rate.
+- Praat, Rscript and FFmpeg must be available, along with the required Python and R packages.
+- CSV and Parquet contain the same logical dataset in different formats.
+- Runtime output directories are selected by the user. The CI examples retain the established `resultados/` directory name for compatibility.
+
+## Appendix: using a terminal for the first time
+
+You do not need to write a program to run these commands. A terminal lets you give instructions directly to your computer.
+
+### Open a terminal
+
+On Ubuntu and many related desktop environments, press `Ctrl + Alt + T`. A window with a text prompt opens.
+
+### Enter the repository directory
+
+If you cloned the repository into your Documents directory:
+
+```bash
+cd ~/Documents/parole
+```
+
+Use the location where you actually saved it. Some terminal applications allow you to drag a directory into the terminal to insert its path.
+
+### Run a command
+
+Type a command and press Enter:
+
+```bash
+mkdir -p output
+bash scripts/parole.sh video.mp4 output
+```
+
+Here `video.mp4` is your input recording and `output` is the directory for results. Use quotes around a path with spaces.
+
+### Find the result
+
+Open the output directory in your file manager. Each recording has its own subdirectory with a CSV or Parquet file. If processing fails, read the messages in the terminal; they identify the stage that reported the problem.
+
+The command line is another way of communicating with the software. Start with one small recording, inspect the result, and then move on to larger batches.

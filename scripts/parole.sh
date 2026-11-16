@@ -11,57 +11,57 @@ echo "the Free Software Foundation, either version 3 of the License, or"
 echo "(at your option) any later version."
 echo ""
 
-# Uso: ./parole.sh INPUT.mp4|INPUT.wav OUTPUT_DIR [--parquet]
+# Usage: ./parole.sh INPUT.mp4|INPUT.wav OUTPUT_DIR [--parquet]
 #
-# Este script hace secuencialmente:
-#   1) Preparación (directorios, nombres de archivo)
-#   2) Prepara audio (44.1 kHz para Praat, 16 kHz para Silero)
-#   3) Silero VAD, 4) Praat, 5) ffprobe timestamps (solo vídeo) → paralelizados
-# Uso:
+# This script performs the following steps:
+#   1) Preparation (directories and filenames)
+#   2) Prepare audio (source rate for Praat, 16 kHz for Silero)
+#   3) Silero VAD, 4) Praat, 5) ffprobe timestamps (video only), in parallel
+# Usage:
 #   ./parole.sh INPUT.mp4|INPUT.wav OUTPUT_DIR [--parquet]
 #
-# Descripción:
-#   Pipeline automático para extracción prosódica desde vídeo o audio.
+# Description:
+#   Automatic prosody extraction pipeline for video or audio.
 #
-# Entradas soportadas:
-#   - INPUT.mp4 : vídeo con pista de audio
-#   - INPUT.wav : archivo de audio mono o estéreo
+# Supported inputs:
+#   - INPUT.mp4 : video with an audio track
+#   - INPUT.wav : mono or stereo audio file
 #
-# Flujo de procesamiento:
-#   1) Preparación de rutas, nombres y directorio de salida
-#   2) Normalización / extracción de audio
-#        - WAV original para Praat
-#        - WAV 16 kHz para Silero VAD
-#   3) Silero VAD (detección de voz)
+# Processing steps:
+#   1) Prepare paths, filenames and output directory
+#   2) Normalize / extract audio
+#        - Source-rate WAV for Praat
+#        - 16 kHz WAV for Silero VAD
+#   3) Silero VAD (voice activity detection)
 #   4) Praat (pitch, intensity, formants, harmonicity, point process)
 #   5) Timestamps
-#        - vídeo: timestamps por frame con ffprobe
-#        - audio: modo temporal continuo sin frames
-#   6) Integración final con R
+#        - video: per-frame timestamps from ffprobe
+#        - audio: acoustic time grid without video frames
+#   6) Final integration in R
 #        - mode = "video"
 #        - mode = "audio"
-#   7) Limpieza de archivos intermedios
+#   7) Clean up intermediate files
 #
-# Salida:
-#   CSV por defecto o Parquet con:
-#     - tiempo
+# Output:
+#   CSV by default, or Parquet, with:
+#     - time
 #     - pitch
-#     - intensidad
-#     - harmonicidad
-#     - formantes
+#     - intensity
+#     - harmonicity
+#     - formants
 #     - VAD
 #
-# Nota:
-#   El modo se detecta automáticamente a partir de la extensión
-#   del archivo de entrada (.mp4 -> video, .wav -> audio)
+# Note:
+#   The mode is detected automatically from the extension
+#   of the input file (.mp4 -> video, .wav -> audio)
 
-set -e  # Salir ante cualquier error
+set -e  # Exit on error
 
 # --------------------------------------------------------------------
-# --- 0. Validar argumentos ---
+# --- 0. Validate arguments ---
 # --------------------------------------------------------------------
 if [ $# -lt 2 ]; then
-  echo "Uso: $0 INPUT.mp4|INPUT.wav OUTPUT_DIR [--parquet]"
+  echo "Usage: $0 INPUT.mp4|INPUT.wav OUTPUT_DIR [--parquet]"
   exit 1
 fi
 
@@ -76,28 +76,28 @@ EXT="${INPUT##*.}"
 EXT="$(echo "$EXT" | tr '[:upper:]' '[:lower:]')"
 
 if [ "$EXT" != "mp4" ] && [ "$EXT" != "wav" ]; then
-  echo "❌ Formato no soportado: .$EXT"
-  echo "   Usa un archivo .mp4 o .wav"
+  echo "❌ Unsupported format: .$EXT"
+  echo "   Use an .mp4 or .wav file"
   exit 1
 fi
 
 # --------------------------------------------------------------------
-# --- Determinar rutas absolutas y base del proyecto ---
+# --- Determine absolute paths and the project root ---
 # --------------------------------------------------------------------
-# BASEDIR: un nivel arriba de la carpeta 'scripts/' donde se encuentra este script
+# BASEDIR: one level above the 'scripts/' directory containing this script
 BASEDIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd -P)"
 
-# Asegurar que INPUT y OUTDIR sean rutas absolutas
+# Ensure INPUT and OUTDIR are absolute paths
 INPUT="$(realpath "$INPUT")"
 OUTDIR="$(realpath "$OUTDIR")"
 
-# Si Praat local existe en env/praat, lo añadimos al PATH
+# If local Praat exists in env/praat, add it to PATH
 if [ -x "${BASEDIR}/env/praat/praat" ]; then
   export PATH="${BASEDIR}/env/praat:$PATH"
 fi
 
 # --------------------------------------------------------------------
-# --- 1. Preparar nombres de archivo ---
+# --- 1. Prepare filenames ---
 # --------------------------------------------------------------------
 BASENAME="$(basename "$INPUT")"
 BASENAME="${BASENAME%.*}"
@@ -107,10 +107,10 @@ mkdir -p "$FINALDIR"
 
 rate=$(ffprobe -i "$INPUT" -select_streams a:0 -show_entries stream=sample_rate -v quiet -of csv="p=0") || true
 if [ -z "$rate" ]; then
-  echo "⚠️  No se pudo detectar la frecuencia de muestreo con ffprobe. Se usará 44100 Hz por defecto."
+  echo "⚠️  Could not detect the sample rate with ffprobe. Using 44100 Hz by default."
   rate=44100
 fi
-echo "Frecuencia de muestreo detectada (o fallback): ${rate} Hz"
+echo "Detected sample rate (or fallback): ${rate} Hz"
 
 AUDIOWAV="${FINALDIR}/${BASENAME}_${rate}Hz.wav"
 AUDIO16K="${FINALDIR}/${BASENAME}_16kHz.wav"
@@ -122,85 +122,85 @@ else
   OUTFILE_NAME="${BASENAME}_prosody.csv"
 fi
 
-# Normalizar rutas absolutas
+# Normalize absolute paths
 FINALDIR="$(realpath "$FINALDIR")"
 AUDIOWAV="$(realpath --canonicalize-missing "$AUDIOWAV")"
 AUDIO16K="$(realpath --canonicalize-missing "$AUDIO16K")"
 FRAMESCSV="$(realpath --canonicalize-missing "$FRAMESCSV")"
 
-# Scripts auxiliares
+# Helper scripts
 PRAAT_SCRIPT="${BASEDIR}/scripts/extract_prosody.praat"
 RSCRIPT="${BASEDIR}/scripts/process_prosody.R"
 SILERO_PY="${BASEDIR}/scripts/silero_vad_runner.py"
 
 # --------------------------------------------------------------------
-# --- 2. Preparar audio (desde vídeo o WAV) ---
+# --- 2. Prepare audio (from video or WAV) ---
 # --------------------------------------------------------------------
 if [ "$EXT" = "wav" ]; then
-  echo "[Paso 2] Normalizando WAV de entrada a rate=$rate Hz → $AUDIOWAV"
+  echo "[Step 2] Normalizing input WAV at rate=$rate Hz → $AUDIOWAV"
   ffmpeg -i "$INPUT" -acodec pcm_s16le -ac 1 -ar "$rate" -y "$AUDIOWAV"
 
-  echo "[Paso 2b] Generando WAV 16 kHz para Silero → $AUDIO16K"
+  echo "[Step 2b] Generating a 16 kHz WAV for Silero → $AUDIO16K"
   ffmpeg -i "$INPUT" -acodec pcm_s16le -ac 1 -ar 16000 -y "$AUDIO16K"
 else
-  echo "[Paso 2] Extrayendo audio a rate=$rate Hz desde vídeo → $AUDIOWAV"
+  echo "[Step 2] Extracting audio at rate=$rate Hz from video → $AUDIOWAV"
   ffmpeg -i "$INPUT" -acodec pcm_s16le -ac 1 -ar "$rate" -y "$AUDIOWAV"
 
-  echo "[Paso 2b] Extrayendo audio 16 kHz para Silero → $AUDIO16K"
+  echo "[Step 2b] Extracting 16 kHz audio for Silero → $AUDIO16K"
   ffmpeg -i "$INPUT" -acodec pcm_s16le -ac 1 -ar 16000 -y "$AUDIO16K"
 fi
 
-# Verificar que se crearon correctamente
+# Verify that the files were created successfully
 if [ ! -s "$AUDIOWAV" ]; then
-  echo "❌ El archivo $AUDIOWAV no se generó correctamente."
+  echo "❌ File $AUDIOWAV was not generated successfully."
   exit 1
 fi
 if [ ! -s "$AUDIO16K" ]; then
-  echo "❌ El archivo $AUDIO16K no se generó correctamente."
+  echo "❌ File $AUDIO16K was not generated successfully."
   exit 1
 fi
 
 # --------------------------------------------------------------------
-# --- 3. Silero, 4. Praat, 5. ffprobe timestamps (Paralelizado) ---
+# --- 3. Silero, 4. Praat, 5. ffprobe timestamps (parallel) ---
 # --------------------------------------------------------------------
 (
-  # PASO 3: SILERO VAD
-  echo "[Paso 3] Ejecutando Silero (opcional)..."
+  # STEP 3: SILERO VAD
+  echo "[Step 3] Running Silero (optional)..."
   if [ -f "$SILERO_PY" ]; then
-    echo "Activando entorno Python..."
-    source "${BASEDIR}/env/pyenv/bin/activate" 2>/dev/null || echo "⚠️  No se pudo 'activate'. Asegura tu env."
+    echo "Activating Python environment..."
+    source "${BASEDIR}/env/pyenv/bin/activate" 2>/dev/null || echo "⚠️  Could not activate the Python environment. Check your installation."
 
-    echo "🎙️  Ejecutando Silero sobre $AUDIO16K"
+    echo "🎙️  Running Silero on $AUDIO16K"
     CSVOUT="${AUDIO16K%.wav}_silero_segments.csv"
     python3 "$SILERO_PY" "$AUDIO16K" "$FINALDIR"
 
     deactivate || true
 
     if [ -f "$CSVOUT" ]; then
-      echo "✅ Silero OK. Segmentos generados: $CSVOUT"
+      echo "✅ Silero OK. Segments generated: $CSVOUT"
     else
-      echo "⚠️  Silero no generó el CSV esperado. Revisa logs."
+      echo "⚠️  Silero did not generate the expected CSV. Check the logs."
     fi
   else
-    echo "⚠️  $SILERO_PY no encontrado. Omitiendo VAD."
+    echo "⚠️  $SILERO_PY not found. Skipping VAD."
   fi
 ) &
 
 (
-  # PASO 4: PRAAT
-  echo "[Paso 4] Ejecutando Praat → $AUDIOWAV"
+  # STEP 4: PRAAT
+  echo "[Step 4] Running Praat → $AUDIOWAV"
   if ! command -v praat &>/dev/null; then
-    echo "❌ 'praat' no está en PATH. Instálalo o ajusta la ruta."
+    echo "❌ 'praat' is not in PATH. Install it or update PATH."
     exit 1
   fi
 
   if [ ! -f "$PRAAT_SCRIPT" ]; then
-    echo "❌ No se encontró $PRAAT_SCRIPT."
+    echo "❌ Could not find $PRAAT_SCRIPT."
     exit 1
   fi
 
   if [ ! -s "$AUDIOWAV" ]; then
-    echo "❌ WAV para Praat no existe o es 0 bytes: $AUDIOWAV"
+    echo "❌ Praat input WAV is missing or empty: $AUDIOWAV"
     exit 1
   fi
 
@@ -208,36 +208,36 @@ fi
 ) &
 
 (
-  # PASO 5: TIMESTAMPS (solo para vídeo)
+  # STEP 5: TIMESTAMPS (video only)
   if [ "$EXT" = "mp4" ]; then
-    echo "[Paso 5] Extrayendo timestamps con ffprobe → $FRAMESCSV"
+    echo "[Step 5] Extracting timestamps with ffprobe → $FRAMESCSV"
     ffprobe -v error -select_streams v:0 -show_entries frame=pts_time \
       -of csv=p=0 "$INPUT" |
     awk 'BEGIN{print "frame_id,frame_timestamp"} {printf "%d,%.6f\n", NR-1, $1}' > "$FRAMESCSV"
 
     if [ ! -s "$FRAMESCSV" ]; then
-      echo "❌ Error: no se generó $FRAMESCSV"
+      echo "❌ Error: $FRAMESCSV was not generated"
       exit 1
     fi
   else
-    echo "[Paso 5] Input de audio puro; se omiten timestamps de frames."
+    echo "[Step 5] Audio-only input; skipping video frame timestamps."
   fi
 ) &
 
-# Esperar a que terminen PASO 3, 4 y 5
+# Wait for STEPS 3, 4 and 5 to finish
 wait
 
 # --------------------------------------------------------------------
-# --- 6. Ejecutar Rscript (process_prosody.R) ---
+# --- 6. Run Rscript (process_prosody.R) ---
 # --------------------------------------------------------------------
-echo "[Paso 6] Ejecutando Rscript para generar archivo final: $OUTFILE_NAME"
+echo "[Step 6] Running Rscript to generate the final file: $OUTFILE_NAME"
 
 if [ ! -f "$RSCRIPT" ]; then
-  echo "❌ No se encontró $RSCRIPT."
+  echo "❌ Could not find $RSCRIPT."
   exit 1
 fi
 if ! command -v Rscript &>/dev/null; then
-  echo "❌ 'Rscript' no está en PATH. Instálalo o ajusta la ruta."
+  echo "❌ 'Rscript' is not in PATH. Install it or update PATH."
   exit 1
 fi
 
@@ -248,12 +248,12 @@ else
 fi
 
 R_LIBS_USER="${BASEDIR}/env/Rlibs" Rscript "$RSCRIPT" "$FINALDIR" "$OUTFILE_NAME" "$MODE"
-echo "✅ Rscript completado. Archivo final generado: $OUTFILE_NAME"
+echo "✅ Rscript completed. Final file generated: $OUTFILE_NAME"
 
 # --------------------------------------------------------------------
-# --- 7. Limpieza de archivos intermedios ---
+# --- 7. Clean up intermediate files ---
 # --------------------------------------------------------------------
-echo "[Paso 7] Limpiando archivos intermedios en $FINALDIR..."
+echo "[Step 7] Cleaning up intermediate files in $FINALDIR..."
 rm -f "${FINALDIR}"/*.Pitch \
       "${FINALDIR}"/*.Intensity \
       "${FINALDIR}"/*.Formant \
@@ -263,4 +263,4 @@ rm -f "${FINALDIR}"/*.Pitch \
       "${FINALDIR}"/*_frame_timestamps.csv \
       "${FINALDIR}"/*_silero_segments.csv 2>/dev/null || true
 
-echo "✅ Proceso COMPLETADO. Archivo final: ${FINALDIR}/${OUTFILE_NAME}"
+echo "✅ Processing COMPLETE. Final file: ${FINALDIR}/${OUTFILE_NAME}"

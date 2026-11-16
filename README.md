@@ -7,13 +7,13 @@
     <img src="https://zenodo.org/badge/964120256.svg" alt="DOI">
   </a>
   <a href="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml">
-    <img src="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml/badge.svg" alt="PAROLE CI (cubic interpolation and CPU VAD)">
+    <img src="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml/badge.svg?branch=projects%2Fenglish" alt="PAROLE CI (cubic interpolation and CPU VAD)">
   </a>
 </p>
 
 Extract prosodic measurements and voice activity from MP4 video or WAV audio using Praat, FFmpeg, R and optional Silero VAD.
 
-[Español](docs/README.es.md) · [Changelog](CHANGELOG.md) · [DOI](https://doi.org/10.5281/zenodo.15522925)
+[Changelog](CHANGELOG.md) · [DOI](https://doi.org/10.5281/zenodo.15522925)
 
 ## Install
 
@@ -92,7 +92,7 @@ python3 scripts/generate_synthetic_fixture.py --output resultados/regenerated.wa
 
 ## Documentation, authorship and license
 
-The [technical manual](_book/Parole--Ecosistema-Funcional.pdf) includes the methodological clarification dated 2026-11-16, alongside the theoretical background.
+The [technical manual](_book/Parole-Functional-Ecosystem.pdf) includes the methodological clarification dated 2026-11-16, alongside the theoretical background.
 
 PAROLE was originally developed by Daedalus Lab as part of MULTIFLOW, funded by the Ministry of Science, Innovation, and Universities of Spain. This repository is **Brian Herreño Jiménez**'s research fork ([contact](mailto:brian.herreno@gmail.com)). The shared project is maintained at [daedalusLAB/parole](https://github.com/daedalusLAB/parole).
 

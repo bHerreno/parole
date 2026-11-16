@@ -2,7 +2,7 @@ name: PAROLE CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "projects/english"]
   pull_request:
     branches: [main]
 
@@ -17,11 +17,11 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      # 1) Obtener el código
+      # 1) Check out the code
       - name: 🔄 Checkout
         uses: actions/checkout@v4
 
-      # 2) Dependencias de sistema (sin libarrow-dev)
+      # 2) System dependencies (without libarrow-dev)
       - name: 🧰 System deps
         run: |
           sudo apt-get update -y
@@ -41,7 +41,7 @@ jobs:
             requirements_silero_local.txt
             requirements_test.txt
 
-      # 5) Instalar PAROLE (compila arrow en R dentro del script)
+      # 5) Install PAROLE (the installer compiles R arrow)
       - name: ⚙️ Install PAROLE (no prompts)
         run: |
           bash install_parole.sh <<< "y"

@@ -1,0 +1,455 @@
+# Technical details
+
+Parole turns acoustic measurements into time-aligned tables. Its name refers to language in use, following Saussure's distinction between the linguistic system and its realization [@DeSaussure2009]. Reproducible use requires understanding the assumptions between the recorded waveform and the exported values.
+
+The central problem is how to describe continuous physical phenomena using discrete observations. Sampling, acoustic estimation and interpolation address different parts of this problem; interpolated values remain estimates rather than additional observations.
+
+## Audio extraction and sampling rates
+
+Sound varies continuously in amplitude over time. Digital recording samples that waveform at regular intervals. The sampling rate specifies the number of samples per second. For a band-limited signal, the Nyquist–Shannon sampling condition relates the sampling frequency to the highest represented frequency [@nyquist1928transmission; @shannon1949noise]:
+
+$$
+f_{\mathrm{sampling}} \geq 2 f_{\mathrm{max}}.
+$$
+
+Practical recording and resampling also require appropriate anti-aliasing filters. Increasing the sample rate cannot recover frequencies missing from the source recording.
+
+Parole prepares two mono PCM WAV files using FFmpeg:
+
+- For Praat, it retains the source sample rate detected by `ffprobe`, falling back to 44100 Hz if detection fails.
+- For Silero VAD, it resamples to 16000 Hz.
+
+For example, when the source rate is 44100 Hz:
+
+```bash
+ffmpeg -i input.mp4 -acodec pcm_s16le \
+  -ac 1 -ar 44100 audio_praat.wav
+ffmpeg -i input.mp4 -acodec pcm_s16le \
+  -ac 1 -ar 16000 audio_vad.wav
+```
+
+These commands illustrate the conversion; `scripts/parole.sh` selects the rate and filenames automatically. The separate files meet the requirements of the acoustic extraction and VAD stages without forcing Praat analysis onto the 16 kHz waveform.
+
+## Voice activity detection
+
+Silero VAD identifies intervals likely to contain speech. The Python runner reads the normalized WAV with SoundFile, loads the model through Torch Hub and writes start/end times in seconds. The R stage marks each target timestamp as inside or outside a detected interval.
+
+The resulting `vad` column is a model prediction. It does not remove silence, mask acoustic tracks or establish ground truth for pitch. Researchers can use it to inspect disagreements or define subsequent filtering, with validation appropriate to their recordings.
+
+Local CPU VAD dependencies are optional and listed in `requirements_silero_cpu.txt` and `requirements_silero_local.txt`. The first model download needs internet access. The model reference currently follows Torch Hub's `master`; the synthetic CI report records the cached model checksum. A CPU/GPU performance comparison is not provided by this smoke test.
+
+## Constructing the temporal grid
+
+Video-mode output uses actual frame presentation timestamps extracted with FFprobe, rather than assuming a regular grid $t_n=n/\mathrm{fps}$. This preserves the input's timing when frames have unequal spacing.
+
+```bash
+ffprobe -v error -select_streams v:0 \
+  -show_entries frame=pts_time \
+  -of csv=p=0 input.mp4
+```
+
+The pipeline writes `frame_id` and `frame_timestamp` to an intermediate CSV. R evaluates the acoustic curves at those timestamps, producing one row per video frame. Valid timestamps are therefore necessary for meaningful alignment.
+
+Audio-only mode does not invent video frames. It uses the sorted union of timestamps parsed from the acoustic objects, exposed through the `time` column.
+
+## Extracting acoustic tracks with Praat
+
+`scripts/extract_prosody.praat` receives a WAV filename and an output directory. It writes text objects consumed by `scripts/process_prosody.R`. The installer pins Praat barren 6.4.60 from its official historical release.
+
+The extraction commands are:
+
+```praat
+To Pitch: 0.001, 60, 600
+To Intensity: 75, 0.001, "yes"
+To Formant (burg): 0.001, 5, 5500, 0.025, 50
+To Harmonicity (cc): 0.01, 75, 0.1, 1.0
+To PointProcess (periodic, cc): 75, 500
+```
+
+Pitch uses a 1 ms time step and a 60–600 Hz search range. Intensity uses a minimum pitch of 75 Hz, a 1 ms step and mean-pressure subtraction; the first argument is not a 75 dB threshold. Formant analysis requests five formants with a 5500 Hz ceiling, a 25 ms window and pre-emphasis from 50 Hz. Harmonicity uses a 10 ms step, minimum pitch 75 Hz, silence threshold 0.1 and 1.0 period per window. PointProcess extraction uses a 75–500 Hz range.
+
+The generated objects are `pitch.Pitch`, `intensity.Intensity`, `formants.Formant`, `harmonicity.Harmonicity` and `pointprocess.PointProcess`. Point-process timestamps can contribute to the audio-mode time grid; they are not exported as separate glottal-event columns.
+
+## Interpolating acoustic time series {#sec-interpolation}
+
+
+Cubic interpolation is central to Parole: it turns acoustic tracks, such as pitch measured by Praat, into continuous functions that can be evaluated at video-frame timestamps.
+
+Praat produces acoustic tracks at high temporal resolution, for example one measurement per millisecond. This grid does not coincide with video frames, whose rate depends on the recording. Synchronization therefore requires estimates at the actual timestamp of each frame.
+
+The approach fits a smooth curve through known observations and evaluates intermediate values. Choosing an interpolant requires considering whether it:
+- preserves the shape of the observed track,
+- provides the continuity required by the analysis without unacceptable artifacts,
+- allows evaluation on an external grid, such as video-frame timestamps.
+
+
+### What is a cubic spline?
+
+A cubic spline is a piecewise function made from polynomials of degree three, smoothly interpolating known points. Classical cubic splines provide:
+
+- Continuity of the first and second derivatives
+- Smooth joins between intervals
+- Boundary behavior determined by the chosen endpoint conditions
+
+This is useful for representing physical phenomena without artificial jumps. Piecewise cubic Hermite methods such as PCHIP use cubic polynomials too, but generally provide C1 rather than C2 continuity.
+
+The general form of a cubic segment between two real-valued knots, $x_i$ and $x_{i+1}$, is:
+
+$$
+S_i(x) = a_i + b_i(x - x_i) + c_i(x - x_i)^2 + d_i(x - x_i)^3
+$$
+
+where:
+- $x \in [x_i, x_{i+1}]$ is any real-valued point in that interval
+- $x_i$ is the start of the interval
+- The coefficients $a_i, b_i, c_i, d_i \in \mathbb{R}$ are determined from known function values, any prescribed derivatives, and the continuity conditions at the knots.
+
+The polynomial is expressed in terms of the local displacement $x-x_i$ from the start of the interval. Its powers control the curve within that interval. Depending on the algorithm, the coefficients may nevertheless be coupled to neighboring or more distant intervals.
+
+In other words, a cubic function is defined between two knots, subject to the endpoint and continuity conditions imposed by the chosen method.
+
+
+### Cubic polynomial coefficients
+
+Each coefficient controls a different aspect of the polynomial on $[x_i,x_{i+1}]$:
+
+- $a_i$ is the function value at the start: $S_i(x_i)=a_i$
+- $b_i$ is the initial slope: $S_i^{\prime}(x_i)=b_i$
+- $c_i$ contributes to curvature: $S_i^{\prime\prime}(x_i)=2c_i$
+- $d_i$ determines the change in curvature: $S_i^{\prime\prime\prime}(x)=6d_i$
+
+The coefficients are constrained by the desired interpolation properties:
+
+1. The curve passes through all known observations.
+2. The resulting function is continuous throughout its domain.
+3. The first derivative, and for some methods the second derivative, is continuous at joins.
+
+The coefficient calculation depends on the method. Natural splines impose zero second derivatives at the endpoints. Shape-preserving methods such as `monoH.FC` adjust slopes to preserve monotonicity; `fmm` is a C2 spline and does not belong to that category.
+
+
+
+
+### Worked example: solving the coefficients explicitly
+
+
+Consider three points:
+
+$$
+(x_1, y_1) = (0.00,\ 100), \quad
+(x_2, y_2) = (0.04,\ 120), \quad
+(x_3, y_3) = (0.08,\ 110)
+$$
+
+This teaching example constructs one Hermite segment using selected secant slopes to illustrate the algebra. It does not reproduce PCHIP slope selection or the global FMM system, and does not by itself demonstrate second-derivative continuity between intervals.
+
+We seek a cubic polynomial between $x_1$ and $x_2$ of the form:
+
+$$
+S(x) = a + b(x - x_1) + c(x - x_1)^2 + d(x - x_1)^3
+$$
+
+Since $x_1=0$, this simplifies to:
+
+$$
+S(x) = a + bx + cx^2 + dx^3
+$$
+
+\paragraph{Step 1: calculate $a$ and $b$}
+
+We have:
+
+$$
+a = y_1 = 100
+$$
+
+$$
+b = m_1 = \frac{y_2 - y_1}{x_2 - x_1} = \frac{120 - 100}{0.04 - 0.00} = \frac{20}{0.04} = 500
+$$
+
+\paragraph{Step 2: calculate $m_2$}
+
+Choose the endpoint derivative as the secant slope between $x_2$ and $x_3$:
+
+$$
+m_2 = \frac{y_3 - y_2}{x_3 - x_2} = \frac{110 - 120}{0.08 - 0.04} = \frac{-10}{0.04} = -250
+$$
+
+\paragraph{Step 3: construct the system for $c$ and $d$}
+
+Let $h=x_2-x_1=0.04$. Impose:
+
+$$
+S(x_2) = a + bh + ch^2 + dh^3 = y_2
+$$
+$$
+S'(x_2) = b + 2ch + 3dh^2 = m_2
+$$
+
+Substituting:
+
+- $a = 100$, $b = 500$
+- $h = 0.04$, $h^2 = 0.0016$, $h^3 = 0.000064$
+
+We obtain:
+
+$$
+c \cdot 0.0016 + d \cdot 0.000064 = 20 - 500 \cdot 0.04 = 0
+$$
+
+$$
+2c \cdot 0.04 + 3d \cdot 0.0016 = -250 - 500 = -750
+$$
+
+\paragraph{Step 4: solve the system}
+
+First equation:
+
+$$
+0.0016c + 0.000064d = 0 \quad \text{(1)}
+$$
+
+Second equation:
+
+$$
+0.08c + 0.0048d = -750 \quad \text{(2)}
+$$
+
+Multiply (1) by 50:
+
+$$
+0.08c + 0.0032d = 0
+$$
+
+Subtract from (2):
+
+$$
+(0.0048 - 0.0032)d = -750 \Rightarrow 0.0016d = -750 \Rightarrow d = -468750
+$$
+
+Substitute into (1):
+
+$$
+0.0016c + 0.000064 \cdot (-468750) = 0 \Rightarrow c = 18750
+$$
+
+\paragraph{Final result:}
+
+$$
+S(x) = 100 + 500x + 18750x^2 - 468750x^3
+$$
+
+This polynomial smoothly interpolates the two endpoints $(0.00,\ 100)$ and $(0.04,\ 120)$ using the selected endpoint derivatives.
+
+
+```{r}
+# Input data
+x1 <- 0.00
+y1 <- 100
+
+x2 <- 0.04
+y2 <- 120
+
+x3 <- 0.08
+y3 <- 110
+
+# Secant-slope derivatives
+m1 <- (y2 - y1) / (x2 - x1)  # 500
+m2 <- (y3 - y2) / (x3 - x2)  # -250
+
+# Coefficients a and b follow directly
+a <- y1
+b <- (y2 - y1) / (x2 - x1)
+
+# Linear system:
+# ch^2 + dh^3 = y2 - a - bh
+# 2ch + 3dh^2 = m2 - b
+
+h <- x2 - x1
+
+rhs1 <- y2 - a - b * h         # right-hand side of eq. 2
+rhs2 <- m2 - b                 # right-hand side of eq. 4
+
+# Coefficient matrix
+A <- matrix(c(h^2, h^3,
+              2*h, 3*h^2), nrow = 2, byrow = TRUE)
+
+rhs <- c(rhs1, rhs2)
+
+# Solve
+sol <- solve(A, rhs)
+c <- sol[1]
+d <- sol[2]
+
+
+# Interval of interest
+x_vals <- seq(0, 0.04, length.out = 1000)
+
+# Individual components
+a_part <- a
+b_part <- b * x_vals
+c_part <- c * x_vals^2
+d_part <- d * x_vals^3
+spline_total <- a + b_part + c_part + d_part
+
+```
+
+
+
+```{r}
+#| label: fig-spline-components
+#| fig-cap: |
+#|   Building a cubic polynomial term by term.
+#|   The black curve is the complete polynomial between \((0.00,\ 100)\) and \((0.04,\ 120)\); colored lines show successive contributions:
+#|   orange (\(a\), constant), blue (\(b\), slope), and green (\(c\), quadratic term).
+#|   The cubic term (\(d\)) is included in the final curve.
+#|   Terms are added cumulatively to illustrate their geometric effects.
+
+
+# Base plot: complete polynomial
+plot(x_vals, spline_total, type = "l", lwd = 2, col = "black",
+     ylab = "Pitch (Hz)", xlab = "Time (s)", main = "Cubic polynomial components")
+
+# Individual components
+lines(x_vals, rep(a_part, length(x_vals)), col = "orange", lwd = 2, lty = 2)     # a
+lines(x_vals, a + b_part, col = "blue", lwd = 2, lty = 3)                        # a + bx
+lines(x_vals, a + b_part + c_part, col = "green", lwd = 2, lty = 4)             # + cx^2
+lines(x_vals, spline_total, col = "black", lwd = 2)                              # complete
+
+# Original points
+points(c(0.00, 0.04), c(100, 120), pch = 19)
+
+# Legend
+legend("topleft", legend = c(
+  expression(paste("a: constant = ", 100)),
+  expression(paste("b: slope = 500x")),
+  expression(paste("c: quadratic term = 18750x"^2)),
+  expression(paste("d: cubic term = -468750x"^3)),
+  "Complete polynomial"
+), col = c("orange", "blue", "green", "black", "black"),
+   lty = c(2, 3, 4, 1, 1), lwd = 2, bty = "n")
+
+
+```
+
+
+```{=latex}
+\clearpage
+```
+
+### Methods available in R
+
+The `splinefun()` function in R's base `stats` package supports several algorithms:
+
+| Method       | Based on                        | Main purpose                                  |
+| -------------------- | ------------------------------ | --------------------------------------------- |
+| `"natural"`  | Classical cubic spline           | Zero second derivative at the endpoints |
+| `"fmm"`      | @Forsythe1977                   | C2 cubic interpolation; overshoot is possible |
+| `"monoH.FC"` | @fritsch1980                    | Preserve monotonicity of the observations             |
+| `"periodic"` | Classical periodic cubic spline | Enforce periodic continuity at the endpoints            |
+
+
+> *Note: `fmm` provides C2 continuity and can overshoot. `monoH.FC` is a monotonicity-preserving cubic Hermite method with C1 continuity; it is a different algorithm.*
+
+
+
+
+
+```{=latex}
+\clearpage
+```
+
+#### Provisional method selection in Parole
+
+R's `splinefun()` supports both natural splines and the `"fmm"` method, depending on the selected option [@splinefun2024].
+
+**Parole** provisionally uses **PCHIP**, a piecewise cubic Hermite interpolant whose interior slopes follow **Fritsch–Butland** [@Fritsch1984]. The curve and its first derivative are continuous ($C^1$), but its second derivative need not be continuous at the knots. This choice is retained while the effects of overshoot on prosodic variables and downstream analyses are evaluated. R's `splinefun(method = "fmm")` instead implements **Forsythe–Malcolm–Moler**, providing $C^2$ continuity within the interpolation domain [@Forsythe1977; @splinefun2024]. This provisional methodological choice does not imply that PCHIP is universally superior or that every between-sample extremum is an error.[^revision-fmm]
+
+[^revision-fmm]: **Revision and discussion note — November 16, 2026.** The attribution of `fmm` to Fritsch–Butland is corrected, and the incorrect claim that FMM prevents overshoot is withdrawn. PCHIP is provisionally preferred because the effects of FMM overshoot on these data and conclusions have not yet been established. $C^2$ continuity is required when a study specifically needs a continuous second derivative, but does not by itself establish accuracy or scientific interpretability. If pitch is expressed as fundamental frequency $F_0(t)$ in Hz, its first derivative measures frequency change in Hz/s, and its second derivative measures the change in that slope in Hz/s$^2$. This is not the physical acceleration of the vocal folds. For PCHIP, the second derivative exists within each segment but can jump or be undefined at joins. A derivative-based study must define its purpose, pitch scale (Hz or logarithmic), handling of noise and gaps, and validation criteria. Estimates outside the measured interval require separate assessment, including with PCHIP.
+
+
+```{=latex}
+\clearpage
+```
+
+### Can the method be changed?
+
+Yes, by changing the implementation and validating the results again. The command-line interface currently has no method selector. In R, alternatives can be explored with:
+
+```r
+splinefun(x, y, method = "natural")
+splinefun(x, y, method = "monoH.FC")
+```
+
+Exploring a different method may be useful when:
+
+* analyzing sustained or melodic voices,
+* requiring a particular degree of global smoothness,
+* comparing responses to jitter, shimmer or vibrato.
+
+
+
+### Reproducible example
+
+The example below compares three `splinefun()` methods on a pitch curve. This is an illustrative comparison: `monoH.FC` is not the Fritsch–Butland PCHIP currently used by Parole.
+
+```{r}
+library(ggplot2)
+
+# Sample points
+t <- c(0.02, 0.08, 0.14)
+y <- c(120, 130, 125)
+
+# Target grid
+interpolation_times <- seq(0.02, 0.14, by = 0.005)
+
+# Interpolators
+spline_fmm <- splinefun(t, y, method = "fmm")
+spline_nat <- splinefun(t, y, method = "natural")
+spline_fc  <- splinefun(t, y, method = "monoH.FC")
+
+df <- data.frame(
+  t = rep(interpolation_times, 3),
+  pitch = c(spline_fmm(interpolation_times), spline_nat(interpolation_times), spline_fc(interpolation_times)),
+  method = rep(c("fmm", "natural", "monoH.FC"), each = length(interpolation_times))
+)
+
+ggplot(df, aes(x = t, y = pitch, color = method)) +
+  geom_line(size = 1.2) +
+  geom_point(data = data.frame(t = t, y = y), aes(x = t, y = y), inherit.aes = FALSE, color = "black", size = 2) +
+  theme_minimal() +
+  labs(title = "Comparing cubic interpolation methods",
+       x = "Time (s)", y = "Pitch (Hz)")
+```
+
+
+
+### Final reflection
+
+Choosing an interpolant is both a technical and a conceptual decision: it determines how unmeasured values are estimated and which properties of the observations are preserved.
+
+Parole provides a framework in which researchers can examine these choices and make them explicitly.
+
+
+## Processing acoustic tracks in R
+
+`scripts/process_prosody.R` parses the Praat text objects, evaluates the tracks on the target time grid and exports a unified table. The pipeline invokes it automatically; its standalone interface is:
+
+```bash
+Rscript scripts/process_prosody.R input_dir output.parquet video
+```
+
+Use `audio` as the final argument for audio-only input. The directory must contain the acoustic objects and, for video, the frame-timestamp CSV. Silero segments are optional. The R `arrow` package provides Parquet output; CSV output uses base R. Parsing uses the base `parallel` package.
+
+### Parsing and alignment
+
+Custom parsers read pitch candidates, intensity, harmonicity, formant frequencies and bandwidths, and point-process times. `scripts/interpolate_cubic.R` implements the PCHIP interpolation used for continuous acoustic tracks. At least four finite observations are required by the current wrapper; otherwise it returns `NA` values.
+
+The implementation retains estimates across gaps and cubic extrapolation outside the observations. These values must not be confused with measurements made by Praat. The existing pitch rule maps values below 10 Hz to zero. VAD labels are assigned by interval membership, not cubic interpolation.
+
+### Exported data
+
+Video output includes `frame_id`, `frame_timestamp` and `time`. Both modes can contain `pitch`, pitch intensity and strength, `intensity`, `harmonicity`, formant frequencies and bandwidths, and `vad`. Missing tracks or unavailable VAD can produce `NA` values. The output filename selects CSV or Parquet.
+
+The distributed example, `tests/fixtures/synthetic_en.wav`, contains known tones, a chirp and synthesized English speech. Its manifest records the audio checksum and timeline. The README gives relative-path commands for producing a video, Parquet and validation report under `resultados/`. This existing output-directory name is retained for compatibility with the validator.
+
+The synthetic example checks pipeline operation and selected expected values; it is not an accuracy benchmark on human speech. Quantitative research requires additional evaluation on recordings appropriate to the intended study.

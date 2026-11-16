@@ -1,132 +1,132 @@
 #!/usr/bin/env bash
-# Instalador del entorno para el proyecto "parole"
-# Crea entornos virtuales para Python y R, instala dependencias
-# e instala Praat barren 6.4.60 para Linux.
+# Environment installer for the "parole" project
+# Creates Python and R environments, installs dependencies
+# and installs Praat barren 6.4.60 for Linux.
 
-set -e  # salir si hay error
+set -e  # exit on error
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 ########################################
-# 0. Chequeo inicial de dependencias
+# 0. Initial dependency checks
 ########################################
-echo "📋 Verificando dependencias del sistema..."
+echo "📋 Checking system dependencies..."
 
 missing_deps=()
 
 check_dep() {
   if command -v "$1" &> /dev/null; then
-    echo "  ✔ $1 encontrado"
+    echo "  ✔ $1 found"
   else
-    echo "  ❌ $1 NO encontrado"
+    echo "  ❌ $1 NOT found"
     missing_deps+=("$1")
   fi
 }
 
-# Chequear herramientas clave
+# Check required tools
 for dep in ffmpeg ffprobe Rscript; do
   check_dep "$dep"
 done
 
-# Instalar siempre la versión local fijada, aunque exista otro Praat global.
+# Always install the pinned local version, even if system Praat is available.
 bash scripts/install_praat.sh
 
 ########################################
-# 2. Confirmar si continuar si hay dependencias faltantes
+# 2. Confirm whether to continue if dependencies are missing
 ########################################
 if [ ${#missing_deps[@]} -gt 0 ]; then
   echo ""
-  echo "⚠️ Faltan las siguientes dependencias del sistema:"
+  echo "⚠️ The following system dependencies are missing:"
   printf '   - %s\n' "${missing_deps[@]}"
   echo ""
-  read -p "¿Quieres continuar con la instalación de entorno Python y R de todas formas? [y/N]: " cont
+  read -p "Continue installing the Python and R environments anyway? [y/N]: " cont
   if [[ "$cont" != "y" && "$cont" != "Y" ]]; then
-    echo "🛑 Instalación cancelada."
+    echo "🛑 Installation cancelled."
     exit 1
   fi
 fi
 
 echo ""
-echo "✅ Continuando con la instalación de entornos virtuales..."
+echo "✅ Continuing with environment installation..."
 echo ""
 
 ########################################
-# 3. Reinstalar / Crear entorno Python
+# 3. Reinstall / create the Python environment
 ########################################
 REINSTALL_PY=false
 if [ -d env/pyenv ]; then
-  echo "⚠️ Se ha detectado un entorno Python existente en 'env/pyenv'."
-  read -p "¿Deseas reinstalar (borrar y crear de nuevo) el entorno de Python? [y/N]: " ans_py
+  echo "⚠️ An existing Python environment was found at 'env/pyenv'."
+  read -p "Reinstall (delete and recreate) the Python environment? [y/N]: " ans_py
   if [[ "$ans_py" == "y" || "$ans_py" == "Y" ]]; then
     REINSTALL_PY=true
-    echo "🗑 Borrando entorno Python existente..."
+    echo "🗑 Deleting the existing Python environment..."
     rm -rf env/pyenv
   fi
 fi
 
 if [ ! -f requirements_python.txt ]; then
-  echo "❌ No se encontró 'requirements_python.txt'"
-  read -p "¿Quieres continuar sin instalar dependencias de Python? [y/N]: " py_skip
+  echo "❌ Could not find 'requirements_python.txt'"
+  read -p "Continue without installing Python dependencies? [y/N]: " py_skip
   if [[ "$py_skip" != "y" && "$py_skip" != "Y" ]]; then
-    echo "🛑 Instalación cancelada."
+    echo "🛑 Installation cancelled."
     exit 1
   fi
 else
-  # Si REINSTALL_PY = true o no existía env/pyenv
+  # If REINSTALL_PY = true or env/pyenv did not exist
   if [ "$REINSTALL_PY" = true ] || [ ! -d env/pyenv ]; then
-    echo "🔧 Creando entorno virtual de Python en env/pyenv..."
+    echo "🔧 Creating the Python environment at env/pyenv..."
     python3 -m venv env/pyenv
     source env/pyenv/bin/activate
     pip install --upgrade pip
 
-    echo "📦 Instalando dependencias desde requirements_python.txt..."
+    echo "📦 Installing dependencies from requirements_python.txt..."
     pip install -r requirements_python.txt
 
     deactivate
-    echo "✅ Entorno Python creado e instalado correctamente."
+    echo "✅ Python environment created and installed successfully."
   else
-    echo "✅ Manteniendo el entorno Python existente en env/pyenv"
-    echo "   (Si quieres reinstalarlo, vuelve a lanzar este script y elige 'y')"
+    echo "✅ Keeping the existing Python environment at env/pyenv"
+    echo "   (To reinstall it, run this script again and choose 'y')"
   fi
 fi
 
 ########################################
-# 4. Reinstalar / Crear entorno R
+# 4. Reinstall / create the R library
 ########################################
 REINSTALL_R=false
 if [ -d env/Rlibs ]; then
-  echo "⚠️ Se ha detectado un directorio 'env/Rlibs' con librerías R existentes."
-  read -p "¿Deseas reinstalar (borrar y crear de nuevo) las librerías R? [y/N]: " ans_r
+  echo "⚠️ An existing R library was found at 'env/Rlibs'."
+  read -p "Reinstall (delete and recreate) the R library? [y/N]: " ans_r
   if [[ "$ans_r" == "y" || "$ans_r" == "Y" ]]; then
     REINSTALL_R=true
-    echo "🗑 Borrando librerías R existentes..."
+    echo "🗑 Deleting the existing R library..."
     rm -rf env/Rlibs
   fi
 fi
 
-# Si existe .Renviron y se va a reinstalar R, lo borramos
+# Remove .Renviron if it exists and the R library is being reinstalled
 if [ -f .Renviron ] && [ "$REINSTALL_R" = true ]; then
-  echo "🗑 Borrando .Renviron existente..."
+  echo "🗑 Deleting the existing .Renviron..."
   rm -f .Renviron
 fi
 
 if [ "$REINSTALL_R" = true ] || [ ! -d env/Rlibs ]; then
   echo ""
-  echo "📁 Creando carpeta para librerías R en env/Rlibs..."
+  echo "📁 Creating the R library directory at env/Rlibs..."
   mkdir -p env/Rlibs
 
-  # Crear .Renviron local
+  # Create a local .Renviron
   echo "R_LIBS_USER=${PWD}/env/Rlibs" > .Renviron
-  echo "✅ Archivo .Renviron creado con R_LIBS_USER=${PWD}/env/Rlibs"
+  echo "✅ Created .Renviron with R_LIBS_USER=${PWD}/env/Rlibs"
 
-  echo "📦 Instalando paquetes R necesarios..."
+  echo "📦 Installing required R packages..."
   Rscript -e 'install.packages(c("arrow", "data.table", "tidyverse"), repos="https://cloud.r-project.org", lib="env/Rlibs")'
 
-  echo "✅ Librerías R instaladas correctamente en env/Rlibs"
+  echo "✅ R packages installed successfully in env/Rlibs"
 else
-  echo "✅ Manteniendo las librerías R existentes en env/Rlibs"
-  echo "   (Si quieres reinstalarlas, vuelve a lanzar este script y elige 'y')"
+  echo "✅ Keeping the existing R library at env/Rlibs"
+  echo "   (To reinstall them, run this script again and choose 'y')"
 fi
 
 echo ""
-echo "🎉 Instalación completada. Todo listo para usar ./scripts/parole.sh"
+echo "🎉 Installation complete. Ready to use ./scripts/parole.sh"
 

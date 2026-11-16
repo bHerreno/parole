@@ -1,17 +1,17 @@
-# Ignorar entornos y resultados
+# Ignore environments and results
 env/
 resultados/
 
-# Archivos de R
+# R session files
 .Rhistory
 .RData
 .Rproj.user
 
-# Cachés de Python
+# Python caches
 __pycache__/
 *.pyc
 
-# Archivos de audio y salida intermedia de Praat
+# Audio files and intermediate Praat outputs
 *.wav
 *.Pitch
 *.Formant
@@ -19,7 +19,7 @@ __pycache__/
 *.PointProcess
 *.Harmonicity
 
-# Ignorar los workflows de GitHub Actions
+# Ignore new GitHub Actions workflows by default
 .github/workflows/
 
 
@@ -44,5 +44,13 @@ __pycache__/
 # Quarto / LaTeX build intermediates
 *_files/
 /_book/docs/
-/Parole--Ecosistema-Funcional.tex
+/Parole-Functional-Ecosystem.tex
 /index.log
+
+# Additional PDF build intermediates
+/index.aux
+/index.lof
+/index.lot
+/index.pdf
+/index.tex
+/index.toc

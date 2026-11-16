@@ -5,22 +5,19 @@ project:
 
 
 book:
-  title: "Parole: Ecosistema Funcional"
-  output-file: Parole--Ecosistema-Funcional
-  subtitle: "Estudio, diseño y reflexiones"
+  title: "Parole: Functional Ecosystem"
+  output-file: Parole-Functional-Ecosystem
+  subtitle: "Study, design and reflections"
   author: "Brian Herreño Jiménez"
 
-  # Lista de capítulos en el orden que quieras:
+  # Chapters in reading order:
   chapters:
     - index.qmd
-    - docs/concepto.qmd
-    - docs/instalacion.qmd
-    # - docs/estructura.qmd
-    - docs/uso_basico.qmd
-    # - docs/batch_procesado.qmd
-    - docs/detalles_tecnicos.qmd
-    # - docs/reflexion.qmd
-    - docs/referencias.qmd
+    - docs/concept.qmd
+    - docs/installation.qmd
+    - docs/basic_usage.qmd
+    - docs/technical_details.qmd
+    - docs/references.qmd
 
 format:
   pdf:
@@ -38,7 +35,7 @@ format:
     lot: true
     fig-width: 9
     classoption: headings=small
-    # cite-method: biblatex  # Para usar biblatex (mejor con Quarto)
+    # cite-method: biblatex  # Optional biblatex citation handling
     include-before-body: banner.tex
 
     
@@ -51,15 +48,15 @@ geometry:
   - top=2cm
   - bottom=3.5cm
 
-lang: "es"
+lang: "en"
 language:
-  es:
-    toc-title-document: "Índice de contenidos"
+  en:
+    toc-title-document: "Table of contents"
 
-crossref-lof-title: "Índice de figuras"
-crossref-lot-title: "Índice de tablas"
+crossref-lof-title: "List of figures"
+crossref-lot-title: "List of tables"
 
-# Ajustá la ruta a tu archivo .bib y .csl
+# Bibliography and optional citation style
 bibliography: docs/references/parole.bib
 # csl: docs/apa.csl
 
@@ -89,9 +86,9 @@ include-before-body:
     \pagestyle{plain}
     \ 
     \vfill
-    \hfill «No con la romana y a bulto, sino con balanzas de exquisita precisión, se sopesa el oro de la verdad.»
+    \hfill “The gold of truth is weighed not roughly on a steelyard, but on scales of exquisite precision.”
     
-    \hfill ---F. Nicolò Riccardi, aprobación a \textit{Il Saggiatore} (1623)
+    \hfill ---F. Nicolò Riccardi, approval of \textit{Il Saggiatore} (1623)
     \vfill
     \newpage
     \pagestyle{plain}

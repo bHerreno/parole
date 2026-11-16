@@ -1,8 +1,3 @@
-pandas
-
-# torch
-# torchaudio
-# torch / torchaudio
-# ES: Desactivado en CI para evitar instalar wheels CUDA (cu12) que agotan el disco del runner.
-# EN: Disabled in CI to avoid installing CUDA (cu12) wheels that exhaust runner disk space.
-
+# torch / torchaudio are optional.
+# Install requirements_silero_cpu.txt and requirements_silero_local.txt for CPU VAD.
+# Keeping CUDA wheels out of the default installation avoids exhausting CI storage.
