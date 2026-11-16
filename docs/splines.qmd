@@ -1,0 +1,357 @@
+# Interpolación de series acústicas{#sec-interpolacion}
+
+## ¿Por qué interpolamos?
+
+La interpolación de *splines cúbicos* es una técnica fundamental en Parole para convertir series acústicas —como el pitch extraído con Praat— en funciones continuas evaluables exactamente en los instantes temporales definidos por los fotogramas del vídeo.
+
+Praat produce series acústicas con una resolución temporal alta (por ejemplo, una medida cada 1 ms), pero esa rejilla no coincide con la del vídeo, cuya frecuencia de fotogramas puede variar según el archivo (por ejemplo, 25 fps, 30 fps o cualquier otro valor real detectado). Para sincronizar ambos dominios, necesitamos estimar con precisión los valores acústicos en los tiempos exactos de cada fotograma.
+
+La solución consiste en ajustar una curva suave que pase por los puntos conocidos y permita predecir los valores intermedios con estabilidad numérica y realismo. Esto requiere un método de interpolación que:
+- respete la forma de la señal,
+- garantice continuidad y ausencia de artefactos,
+- y permita evaluar los valores en una rejilla externa (la del vídeo).
+
+
+## ¿Qué es un spline cúbico?
+
+Un spline cúbico es una función por tramos, compuesta por polinomios de grado 3, que interpola suavemente entre puntos conocidos. Posee:
+
+- Continuidad de primer y segundo orden  
+- Suavidad entre tramos  
+- Comportamiento controlado en los bordes (según las condiciones impuestas)
+
+Es útil en fenómenos físicos donde se desea preservar la forma sin introducir saltos ni rupturas artificiales.
+
+Matemáticamente, la forma general de un tramo del spline entre dos puntos definidos en el dominio de los reales, $x_i$ y $x_{i+1}$, es:
+
+$$
+S_i(x) = a_i + b_i(x - x_i) + c_i(x - x_i)^2 + d_i(x - x_i)^3
+$$
+
+donde:
+- $x \in [x_i, x_{i+1}]$ es un valor cualquiera del dominio real en ese intervalo  
+- $x_i$ es el valor inicial del tramo  
+- Los coeficientes $a_i, b_i, c_i, d_i \in \mathbb{R}$ se determinan a partir de los valores conocidos de la función (y, en algunos métodos, también de sus derivadas) en los nodos $x_i$ y $x_{i+1}$, así como de condiciones de continuidad global.
+
+Esta expresión garantiza que el spline se construye localmente, evaluando el desplazamiento $x - x_i$ desde el inicio de cada intervalo. El uso de potencias de ese desplazamiento permite que el polinomio se adapte a la curvatura deseada dentro del intervalo, sin afectar directamente a los demás tramos.
+
+En otras palabras: se seleccionan dos valores del dominio de los reales, $x_i$ y $x_{i+1}$, y se define una función cúbica entre ellos que respeta las condiciones impuestas por la función original en esos puntos y sus adyacentes.
+
+
+### Coeficientes de los splines cúbicos
+
+Cada uno de los coeficientes del polinomio cúbico tiene un papel específico en la forma del spline en el intervalo $[x_i, x_{i+1}]$:
+
+- $a_i$ es el valor de la función en el punto inicial $x_i$, es decir: $S_i(x_i) = a_i$  
+- $b_i$ define la pendiente inicial del tramo: controla la inclinación de la curva justo al salir de $x_i$  
+- $c_i$ modela la curvatura media: influye en cuánto se “dobla” la curva dentro del intervalo  
+- $d_i$ determina cómo varía esa curvatura: es responsable del cambio en la concavidad (la derivada tercera)
+
+Estos coeficientes no se eligen libremente. Se calculan de forma que se garantice:
+
+1. Que el spline pase exactamente por todos los puntos conocidos  
+2. Que la función resultante sea continua en todo el dominio  
+3. Que sus derivadas (primera y, en algunos métodos, también la segunda) sean continuas en los puntos de unión entre tramos
+
+El sistema que se resuelve para obtener estos coeficientes depende del método de interpolación elegido. Algunos, como el spline natural, imponen condiciones específicas en los extremos (por ejemplo, derivadas segundas nulas). Los métodos monótonos, como `monoH.FC`, ajustan las pendientes para preservar la forma; `fmm` es un spline C2 y no pertenece a esa categoría.
+
+
+
+
+### Ejemplo aplicado (resolución explícita)
+
+
+Dados tres puntos:
+
+$$
+(x_1, y_1) = (0.00,\ 100), \quad
+(x_2, y_2) = (0.04,\ 120), \quad
+(x_3, y_3) = (0.08,\ 110)
+$$
+
+Este ejemplo didáctico construye un tramo de Hermite con pendientes secantes elegidas para ilustrar el álgebra. No reproduce el cálculo de pendientes de PCHIP ni el sistema global de FMM, y por sí solo no demuestra continuidad de la segunda derivada entre tramos.
+
+Queremos construir un polinomio cúbico entre $x_1$ y $x_2$ de la forma:
+
+$$
+S(x) = a + b(x - x_1) + c(x - x_1)^2 + d(x - x_1)^3
+$$
+
+Dado que $x_1 = 0$, la expresión se simplifica a:
+
+$$
+S(x) = a + bx + cx^2 + dx^3
+$$
+
+\paragraph{Paso 1: calcular $a$ y $b$}
+
+Sabemos que:
+
+$$
+a = y_1 = 100
+$$
+
+$$
+b = m_1 = \frac{y_2 - y_1}{x_2 - x_1} = \frac{120 - 100}{0.04 - 0.00} = \frac{20}{0.04} = 500
+$$
+
+\paragraph{Paso 2: calcular $m_2$}
+
+Estimamos la derivada final como pendiente secante entre $x_2$ y $x_3$:
+
+$$
+m_2 = \frac{y_3 - y_2}{x_3 - x_2} = \frac{110 - 120}{0.08 - 0.04} = \frac{-10}{0.04} = -250
+$$
+
+\paragraph{Paso 3: montar el sistema para $c$ y $d$}
+
+Sea $h = x_2 - x_1 = 0.04$. Impongamos:
+
+$$
+S(x_2) = a + bh + ch^2 + dh^3 = y_2
+$$
+$$
+S'(x_2) = b + 2ch + 3dh^2 = m_2
+$$
+
+Sustituyendo:
+
+- $a = 100$, $b = 500$
+- $h = 0.04$, $h^2 = 0.0016$, $h^3 = 0.000064$
+
+Obtenemos:
+
+$$
+c \cdot 0.0016 + d \cdot 0.000064 = 20 - 500 \cdot 0.04 = 0
+$$
+
+$$
+2c \cdot 0.04 + 3d \cdot 0.0016 = -250 - 500 = -750
+$$
+
+\paragraph{Paso 4: resolver el sistema}
+
+Primera ecuación:
+
+$$
+0.0016c + 0.000064d = 0 \quad \text{(1)}
+$$
+
+Segunda ecuación:
+
+$$
+0.08c + 0.0048d = -750 \quad \text{(2)}
+$$
+
+Multiplicamos (1) por 50:
+
+$$
+0.08c + 0.0032d = 0
+$$
+
+Restamos a (2):
+
+$$
+(0.0048 - 0.0032)d = -750 \Rightarrow 0.0016d = -750 \Rightarrow d = -468750
+$$
+
+Sustituimos en (1):
+
+$$
+0.0016c + 0.000064 \cdot (-468750) = 0 \Rightarrow c = 18750
+$$
+
+\paragraph{Resultado final:}
+
+$$
+S(x) = 100 + 500x + 18750x^2 - 468750x^3
+$$
+
+Este polinomio representa el spline cúbico que interpola suavemente entre los puntos $(0.00,\ 100)$ y $(0.04,\ 120)$, usando derivadas estimadas en los extremos.
+
+
+```{r}
+# Datos de entrada
+x1 <- 0.00
+y1 <- 100
+
+x2 <- 0.04
+y2 <- 120
+
+x3 <- 0.08
+y3 <- 110
+
+# Derivadas por pendiente secante
+m1 <- (y2 - y1) / (x2 - x1)  # 500
+m2 <- (y3 - y2) / (x3 - x2)  # -250
+
+# Coeficientes a y b son directos
+a <- y1
+b <- (y2 - y1) / (x2 - x1)
+
+# Sistema lineal:
+# ch^2 + dh^3 = y2 - a - bh
+# 2ch + 3dh^2 = m2 - b
+
+h <- x2 - x1
+
+rhs1 <- y2 - a - b * h         # lado derecho de eq. 2
+rhs2 <- m2 - b                 # lado derecho de eq. 4
+
+# Matriz de coeficientes
+A <- matrix(c(h^2, h^3,
+              2*h, 3*h^2), nrow = 2, byrow = TRUE)
+
+rhs <- c(rhs1, rhs2)
+
+# Resolver
+sol <- solve(A, rhs)
+c <- sol[1]
+d <- sol[2]
+
+
+# Intervalo de interés
+x_vals <- seq(0, 0.04, length.out = 1000)
+
+# Componentes individuales
+a_part <- a
+b_part <- b * x_vals
+c_part <- c * x_vals^2
+d_part <- d * x_vals^3
+spline_total <- a + b_part + c_part + d_part
+
+```
+
+
+
+```{r}
+#| label: fig-spline-componentes
+#| fig-cap: |
+#|   Construcción progresiva de un spline cúbico.  
+#|   La curva negra representa el spline total ajustado entre los puntos \((0.00,\ 100)\) y \((0.04,\ 120)\), mientras que las líneas de colores muestran la contribución sucesiva de cada término:  
+#|   naranja (\(a\), constante), azul (\(b\), pendiente), verde (\(c\), curvatura).  
+#|   La concavidad (\(d\)) se incorpora en la forma final.  
+#|   Cada componente se añade de forma acumulativa, permitiendo visualizar su efecto geométrico sobre la curva.
+
+
+# Plot base: spline completo
+plot(x_vals, spline_total, type = "l", lwd = 2, col = "black",
+     ylab = "Pitch (Hz)", xlab = "Tiempo (s)", main = "Componentes del spline cúbico")
+
+# Componentes individuales
+lines(x_vals, rep(a_part, length(x_vals)), col = "orange", lwd = 2, lty = 2)     # a
+lines(x_vals, a + b_part, col = "blue", lwd = 2, lty = 3)                        # a + bx
+lines(x_vals, a + b_part + c_part, col = "green", lwd = 2, lty = 4)             # + cx^2
+lines(x_vals, spline_total, col = "black", lwd = 2)                              # completo
+
+# Puntos originales
+points(c(0.00, 0.04), c(100, 120), pch = 19)
+
+# Leyenda
+legend("topleft", legend = c(
+  expression(paste("a: constante = ", 100)),
+  expression(paste("b: pendiente = 500x")),
+  expression(paste("c: curvatura = 18750x"^2)),
+  expression(paste("d: concavidad = -468750x"^3)),
+  "Spline total"
+), col = c("orange", "blue", "green", "black", "black"),
+   lty = c(2, 3, 4, 1, 1), lwd = 2, bty = "n")
+
+
+```
+
+
+```{=latex}
+\clearpage
+```
+
+# Métodos disponibles en R
+
+La función `splinefun()` del paquete base `{stats}` permite seleccionar distintos algoritmos:
+
+| Método       | Basado en...                    | Propósito principal                                  |
+| -------------------- | ------------------------------ | --------------------------------------------- |
+| `"natural"`  | Spline cúbico clásico           | Derivada segunda = 0 en los extremos (bordes suaves) |
+| `"fmm"`      | @Forsythe1977                   | Interpolación cúbica C2; no garantiza ausencia de sobreoscilación |
+| `"monoH.FC"` | @fritsch1980                    | Preservar la monotonía de los datos             |
+| `"periodic"` | Spline cúbico periódico clásico | Forzar continuidad cíclica entre extremos            |
+
+
+> *Nota: `fmm` prioriza continuidad C2 y puede sobreoscilar. `monoH.FC` utiliza Hermite cúbico con preservación de monotonía y continuidad C1; no es el mismo algoritmo.*
+
+
+
+
+
+```{=latex}
+\clearpage
+```
+
+## Elección provisional del método en Parole
+
+La función `splinefun()` del paquete base `{stats}` de R permite aplicar tanto *splines naturales* como el método `"fmm"`, según la opción seleccionada [@splinefun2024].
+
+**Parole** utiliza provisionalmente **PCHIP**, una interpolación de Hermite cúbica por tramos con pendientes interiores calculadas mediante el método de **Fritsch–Butland** [@Fritsch1984]. Esta elección conserva la continuidad de la curva y de su primera derivada ($C^1$), pero no garantiza la continuidad de la segunda derivada en las uniones. Se adopta mientras se evalúa cómo las sobreoscilaciones de otras interpolaciones podrían afectar a las variables prosódicas y a sus análisis derivados. La alternativa `splinefun(method = "fmm")` de R corresponde a **Forsythe–Malcolm–Moler** y proporciona continuidad $C^2$ dentro del dominio interpolado [@Forsythe1977; @splinefun2024]. La elección es provisional y metodológica: no implica que PCHIP sea universalmente superior ni que un extremo entre muestras sea necesariamente un error.[^revision-fmm]
+
+[^revision-fmm]: **Nota de revisión y discusión — 16 de noviembre de 2026.** Se corrige la atribución de `fmm` a Fritsch–Butland y se retira la afirmación incorrecta de que FMM evita la sobreoscilación. Por ahora se prefiere PCHIP porque todavía no se ha evaluado cómo las sobreoscilaciones de FMM pueden afectar a los datos y conclusiones de estos estudios. La continuidad $C^2$ sigue siendo una propiedad deseable cuando el análisis requiere una segunda derivada continua, pero no garantiza por sí sola exactitud ni interpretabilidad científica. Si el pitch se expresa como frecuencia fundamental $F_0(t)$ en Hz, su primera derivada mide la variación de frecuencia por unidad de tiempo (Hz/s), y su segunda derivada mide cómo cambia esa pendiente (Hz/s$^2$); esta última no es directamente una aceleración física de las cuerdas vocales. En PCHIP existe dentro de cada tramo, pero puede presentar saltos o no existir en las uniones. Antes de adoptar C2 como requisito deben definirse el uso de esa segunda derivada, la escala de pitch (Hz o logarítmica), el tratamiento de ruido y huecos y el criterio de validación. Las estimaciones fuera del intervalo medido requieren evaluación separada, también con PCHIP.
+
+
+# ¿Se puede cambiar el método?
+
+Sí, modificando la implementación y validando de nuevo los resultados. No existe actualmente un selector de método en la interfaz de línea de comandos. En R se puede experimentar con:
+
+```r
+splinefun(x, y, method = "natural")
+splinefun(x, y, method = "monoH.FC")
+````
+
+Cambiar el método puede ser útil si:
+
+* Se analizan voces sostenidas o melódicas
+* Se quiere imponer suavidad global
+* Se comparan respuestas ante jitter, shimmer o vibrato
+
+
+
+# Ejemplo reproducible
+
+A continuación se comparan tres métodos de `splinefun()` para interpolar una curva de pitch. Es una comparación ilustrativa: `monoH.FC` no es el PCHIP de Fritsch–Butland empleado actualmente por Parole.
+
+```{r}
+library(ggplot2)
+
+# Puntos reales
+t <- c(0.02, 0.08, 0.14)
+y <- c(120, 130, 125)
+
+# Rejilla de destino
+tiempo_interp <- seq(0.02, 0.14, by = 0.005)
+
+# Interpoladores
+spline_fmm <- splinefun(t, y, method = "fmm")
+spline_nat <- splinefun(t, y, method = "natural")
+spline_fc  <- splinefun(t, y, method = "monoH.FC")
+
+df <- data.frame(
+  t = rep(tiempo_interp, 3),
+  pitch = c(spline_fmm(tiempo_interp), spline_nat(tiempo_interp), spline_fc(tiempo_interp)),
+  metodo = rep(c("fmm", "natural", "monoH.FC"), each = length(tiempo_interp))
+)
+
+ggplot(df, aes(x = t, y = pitch, color = metodo)) +
+  geom_line(size = 1.2) +
+  geom_point(data = data.frame(t = t, y = y), aes(x = t, y = y), inherit.aes = FALSE, color = "black", size = 2) +
+  theme_minimal() +
+  labs(title = "Interpolación cúbica con diferentes métodos",
+       x = "Tiempo (s)", y = "Pitch (Hz)")
+```
+
+
+
+# Reflexión final
+
+El spline es una decisión técnica y conceptual: define cómo le damos forma a lo que no está medido, cómo estimamos sin imponer, y cómo cuidamos la fidelidad del fenómeno.
+
+Parole no ofrece un solo camino, sino una estructura donde el investigador puede —y debe— elegir con conciencia.
+
+

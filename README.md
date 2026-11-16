@@ -2,9 +2,6 @@
   <img src="images/logo_parole.png" alt="PAROLE logo" width="50%">
 </p>
 
-<h1 align="center">PAROLE</h1>
-<p align="center">Automatic speech prosody extraction</p>
-
 <p align="center">
   <a href="https://doi.org/10.5281/zenodo.15522925">
     <img src="https://zenodo.org/badge/964120256.svg" alt="DOI">
@@ -37,7 +34,7 @@ env/pyenv/bin/python -m pip install -r requirements_silero_cpu.txt
 env/pyenv/bin/python -m pip install -r requirements_silero_local.txt
 ```
 
-CPU inference is working and covered by CI. Audio is decoded with SoundFile to avoid a TorchCodec dependency. The first run downloads the model from Torch Hub and requires internet access. The model currently follows `snakers4/silero-vad`'s `master` branch; it is not version-pinned. The synthetic validation report records its checksum. A comparative CPU/GPU benchmark remains pending.
+CPU inference is working and covered by CI. Audio is decoded with SoundFile to avoid a TorchCodec dependency. The first run downloads the model from Torch Hub and requires internet access. The model currently follows `snakers4/silero-vad`'s `master` branch; it is not version-pinned. The synthetic validation report records its checksum.
 
 ## Process your files
 
@@ -54,13 +51,15 @@ For video, ffprobe supplies the actual frame timestamps and PAROLE aligns acoust
 
 ## Interpolation and research use
 
+The production pipeline performs interpolation in **R** (`scripts/interpolate_cubic.R`). SciPy is used only in the regression tests as an independent numerical reference; it does not perform interpolation during normal processing.
+
 The current implementation uses **piecewise cubic Hermite interpolation (PCHIP)**, with Fritsch–Butland interior slopes and one-sided endpoint slopes. This is a provisional methodological choice while the effects of FMM overshoot on measurements and downstream analyses remain to be evaluated.[^interpolation]
 
 PCHIP is **C1**: the curve and its first derivative are continuous, but the second derivative may jump at knots. Within the measured range it preserves shape without introducing overshoot between adjacent observations. This guarantee does **not** apply to the cubic endpoint extrapolation used outside that range.
 
 The pipeline still estimates values across gaps and at frame timestamps beyond the measured endpoints; these are estimates, not additional acoustic observations. Tracks with fewer than four valid observations produce `NA`. The existing rule converting pitch below 10 Hz to zero is retained. Interpret gaps, boundaries and derivative-based results with these limitations in mind.
 
-[^interpolation]: Methodological clarification, **2026-11-16**. R's `splinefun(method = "fmm")` implements **Forsythe–Malcolm–Moler**, not Fritsch–Butland. FMM provides C2 continuity but can overshoot; the magnitude depends on the data. A C2 method is needed when a study specifically requires a continuous second derivative, but continuity alone does not establish scientific validity. PCHIP is retained provisionally until the consequences of overshoot are assessed. For pitch measured in Hz, the second time derivative has units Hz/s² and describes changes in the pitch slope, not physical vocal-fold acceleration. The historical PDF has not been revised in this update; its method attribution and smoothness claims should be read alongside this clarification.
+[^interpolation]: Methodological clarification, **2026-11-16**. R's `splinefun(method = "fmm")` implements **Forsythe–Malcolm–Moler**, not Fritsch–Butland. FMM provides C2 continuity but can overshoot; the magnitude depends on the data. A C2 method is needed when a study specifically requires a continuous second derivative, but continuity alone does not establish scientific validity. PCHIP is retained provisionally until the consequences of overshoot are assessed. For pitch measured in Hz, the second time derivative has units Hz/s² and describes changes in the pitch slope, not physical vocal-fold acceleration. The manual incorporates this clarification in its methodological discussion and dated footnote.
 
 Algorithm references: [Fritsch–Butland (1984)](https://doi.org/10.1137/0905021), [SciPy PCHIP](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html), [R splinefun](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/splinefun.html).
 
@@ -93,8 +92,8 @@ python3 scripts/generate_synthetic_fixture.py --output resultados/regenerated.wa
 
 ## Documentation, authorship and license
 
-The [historical manual](_book/Parole--Ecosistema-Funcional.pdf) provides background; the implementation and methodological clarification above describe the current interpolation behavior.
+The [technical manual](_book/Parole--Ecosistema-Funcional.pdf) includes the methodological clarification dated 2026-11-16, alongside the theoretical background.
 
-PAROLE was originally developed by Daedalus Lab as part of MULTIFLOW, funded by the Ministry of Science, Innovation, and Universities of Spain. This is an independent fork maintained by **Brian Herreño Jiménez** ([contact](mailto:brian.herreno@gmail.com)); its modifications are not affiliated with or endorsed by Daedalus Lab or MULTIFLOW. The [upstream project](https://github.com/daedalusLAB/parole) lists Cristóbal Pagán Cánovas as the original contact.
+PAROLE was originally developed by Daedalus Lab as part of MULTIFLOW, funded by the Ministry of Science, Innovation, and Universities of Spain. This repository is **Brian Herreño Jiménez**'s research fork ([contact](mailto:brian.herreno@gmail.com)). The shared project is maintained at [daedalusLAB/parole](https://github.com/daedalusLAB/parole).
 
 Distributed under [GPL-3](https://www.gnu.org/licenses/gpl-3.0.html).

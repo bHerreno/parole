@@ -38,3 +38,11 @@ __pycache__/
 *.ogg
 *.mp3
 !tests/fixtures/synthetic_en.wav
+
+**/*.quarto_ipynb
+
+# Quarto / LaTeX build intermediates
+*_files/
+/_book/docs/
+/Parole--Ecosistema-Funcional.tex
+/index.log

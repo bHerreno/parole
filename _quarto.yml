@@ -1,0 +1,99 @@
+project:
+  type: book
+  output-dir: _book
+
+
+
+book:
+  title: "Parole: Ecosistema Funcional"
+  output-file: Parole--Ecosistema-Funcional
+  subtitle: "Estudio, diseño y reflexiones"
+  author: "Brian Herreño Jiménez"
+
+  # Lista de capítulos en el orden que quieras:
+  chapters:
+    - index.qmd
+    - docs/concepto.qmd
+    - docs/instalacion.qmd
+    # - docs/estructura.qmd
+    - docs/uso_basico.qmd
+    # - docs/batch_procesado.qmd
+    - docs/detalles_tecnicos.qmd
+    # - docs/reflexion.qmd
+    - docs/referencias.qmd
+
+format:
+  pdf:
+    documentclass: scrreprt
+    pdf-engine: lualatex
+    keep-tex: true
+    number-sections: true
+    fontsize: 13pt
+    papersize: a4
+    number-depth: 3
+    fig-align: "center"
+    fig-pos: "t"
+    toc: true
+    lof: true
+    lot: true
+    fig-width: 9
+    classoption: headings=small
+    # cite-method: biblatex  # Para usar biblatex (mejor con Quarto)
+    include-before-body: banner.tex
+
+    
+classoption: "twoside,openright"
+linestretch: 1.1
+
+geometry:
+  - left=3cm
+  - right=2.5cm
+  - top=2cm
+  - bottom=3.5cm
+
+lang: "es"
+language:
+  es:
+    toc-title-document: "Índice de contenidos"
+
+crossref-lof-title: "Índice de figuras"
+crossref-lot-title: "Índice de tablas"
+
+# Ajustá la ruta a tu archivo .bib y .csl
+bibliography: docs/references/parole.bib
+# csl: docs/apa.csl
+
+
+execute:
+  echo: false
+  warning: false
+
+header-includes:
+  - \usepackage{tikz}
+  - \usetikzlibrary{trees}
+  - \usetikzlibrary{shapes.geometric}
+  - \usetikzlibrary{positioning}
+  - \usetikzlibrary{shapes,arrows}
+  - \usepackage{lineno}
+  - \usepackage{geometry}
+  - \usepackage{mhchem}
+  - \usepackage[margin=10pt, font=small, labelfont=bf]{caption}
+  - \usepackage{enumitem}
+  - \setlist{itemsep=0pt}
+  - \deffootnote[3em]{1em}{9em}{~\textsuperscript{\thefootnotemark}}
+  - \renewcommand*{\chapterformat}{\thechapter.\ }
+
+include-before-body:
+  text: |
+   \newpage
+    \pagestyle{plain}
+    \ 
+    \vfill
+    \hfill «No con la romana y a bulto, sino con balanzas de exquisita precisión, se sopesa el oro de la verdad.»
+    
+    \hfill ---F. Nicolò Riccardi, aprobación a \textit{Il Saggiatore} (1623)
+    \vfill
+    \newpage
+    \pagestyle{plain}
+    \setcounter{page}{1}
+
