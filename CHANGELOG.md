@@ -1,48 +1,49 @@
-## Sin publicar / Unreleased
+# Changelog / Historial de cambios
 
-### Fixed / Corregido · 2026-11-16
+## 2026-11-16
 
-| EN | ES |
-| --- | --- |
-| **Align cubic interpolation with the documented method.** Replace `fmm` (Forsythe–Malcolm–Moler) with explicit Fritsch–Butland PCHIP interior slopes and one-sided endpoint conditions. Preserve per-frame cubic estimates, gap coverage, endpoint polynomial extrapolation and the minimum-track policy. Clarify the historical PDF attribution and C1 continuity in README. No Daedalus linear interpolation is imported. | **Alinear la interpolación cúbica con el método documentado.** Se sustituye `fmm` (Forsythe–Malcolm–Moler) por PCHIP con pendientes interiores de Fritsch–Butland y condiciones unilaterales en extremos. Se conservan las estimaciones por fotograma, la cobertura de huecos, la extrapolación cúbica de bordes y el mínimo de observaciones. README corrige la atribución del PDF y aclara la continuidad C1. No se incorpora la interpolación lineal de Daedalus. |
-| **Pin Praat barren 6.4.60.** Download from the official historical GitHub release for Linux Intel64/ARM64 and verify the local binary version instead of discovering the latest release. | **Fijar Praat barren 6.4.60.** Descarga histórica oficial para Linux Intel64/ARM64 y verificación de la versión local, sin búsqueda de la última release. |
-| **Restore optional local CPU VAD.** Document CPU and runtime requirements; decode normalized WAV through SoundFile to avoid the TorchCodec requirement. Keep CSV headers when no speech is detected. | **Recuperar VAD local opcional en CPU.** Documenta requisitos CPU y de ejecución; lee WAV normalizado con SoundFile para evitar TorchCodec. Conserva cabeceras CSV cuando no se detecta voz. |
+### English
 
-### Data policy / Política de datos · 2026-11-16
+- Pin and verify local Praat barren **6.4.60** from the official historical release for Linux Intel64/ARM64.
+- Replace R's FMM spline with explicit **PCHIP** cubic interpolation, using Fritsch–Butland interior slopes. This changes the numerical method: PCHIP is C1, whereas FMM is C2. Retain gap estimates, cubic endpoint extrapolation and the existing minimum-observation and low-pitch rules.
+- Document the provisional preference for PCHIP and the need for C2 when studying a continuous second derivative. Assessment of FMM overshoot remains pending; the historical PDF is unchanged.
+- Add nine cubic interpolation regression tests with SciPy as an independent reference, including cases that distinguish cubic interpolation from linear interpolation.
+- Support local WAV input alongside MP4. Restore optional CPU Silero VAD using SoundFile and document its runtime requirements. Preserve CSV headers when no speech is detected.
+- Add a traceable synthetic English audio fixture and full video CI validation for timestamps, known acoustic values and VAD. Publish synthetic results and provenance reports as CI artifacts.
+- Remove previously bundled real-media examples and the machine-specific tracked `.Renviron`. Keep assistant instructions local. Clarify that contributors may share other evaluation data with appropriate rights and consent.
+- Reorganize the README into an English guide and a linked Spanish version. CPU/GPU benchmarking remains pending.
 
-- Distribute only a fully synthetic English WAV with a checksum, generation recipe and timeline. CI builds its video locally and checks known tones, frame alignment and synthetic speech VAD. Real videos are not distributed; real-data evaluations remain limited to TabErrans.
-- Se distribuye solo un WAV sintético en inglés con hash, receta y cronología. CI genera su vídeo localmente y comprueba tonos, alineación y VAD sintético. No se distribuyen vídeos reales; las evaluaciones reales se limitan a TabErrans.
+### Español
 
-### Added / Añadido · 2026-11-16
+- Fija y verifica **Praat barren 6.4.60** local desde la release histórica oficial para Linux Intel64/ARM64.
+- Sustituye FMM de R por interpolación cúbica **PCHIP**, con pendientes interiores de Fritsch–Butland. Es un cambio numérico: PCHIP es C1 y FMM es C2. Conserva estimaciones en huecos, extrapolación cúbica y las reglas de observaciones mínimas y pitch bajo.
+- Explica la preferencia provisional por PCHIP y la necesidad de C2 en estudios que requieren continuidad de la segunda derivada. Queda pendiente evaluar la sobreoscilación de FMM; no se modifica el PDF histórico.
+- Añade nueve pruebas de regresión cúbica con SciPy como referencia independiente, incluyendo casos que distinguen cúbica de lineal.
+- Admite WAV local además de MP4. Recupera Silero VAD opcional en CPU mediante SoundFile y documenta requisitos. Conserva cabeceras CSV si no se detecta voz.
+- Añade audio sintético en inglés trazable y validación CI de vídeo, tiempos, medidas conocidas y VAD. Los artefactos de CI contienen resultados sintéticos e informes de procedencia.
+- Retira ejemplos multimedia reales y el `.Renviron` versionado con rutas del equipo. Mantiene las instrucciones del asistente en local. Permite aportar otros datos de evaluación con derechos y consentimientos adecuados.
+- Reorganiza el README en inglés con versión española enlazada. Sigue pendiente el benchmark CPU/GPU.
 
-| EN | ES |
-| --- | --- |
-| **Specific cubic CI tests.** Compare against SciPy PCHIP on irregular grids, plateaus and extrema; check exact knots, frame/gap/edge coverage, no interior overshoot, missing values and a cubic-vs-linear discriminating fixture. Install CPU VAD into PAROLE's actual environment and require populated VAD in the video smoke test. | **Pruebas CI específicas de cúbica.** Comparación con SciPy PCHIP en rejillas irregulares, mesetas y extremos; nodos exactos, cobertura de fotogramas/huecos/bordes, ausencia de sobreoscilación interior y datos ausentes. Un caso distingue cúbica de lineal. CI instala VAD CPU en el entorno real de PAROLE y exige resultados VAD en el vídeo. |
-| **Local audio support.** Include the existing local WAV-input changes alongside MP4 processing. | **Soporte local de audio.** Incorpora los cambios locales existentes para entrada WAV además de MP4. |
+## 2026-01-10
 
-## 1.1.1  ·  2025-06-20
+Recorded retrospectively from the January changes / Recogido retrospectivamente de los cambios de enero.
 
-### Fixed / Corregido · 2025-06-27
+- **EN:** Move torch/torchaudio out of general dependencies to avoid CUDA installations exhausting CI storage; add CPU requirements pinned to 2.9.1. Consolidate CI in `parole-ci.yml` and document optional Silero installation. Update authorship, funding and contact information.
+- **ES:** Separa torch/torchaudio de las dependencias generales para evitar agotar el disco de CI con CUDA; añade requisitos CPU fijados a 2.9.1. Unifica CI en `parole-ci.yml` y documenta Silero opcional. Actualiza autoría, financiación y contacto.
 
-| EN                                                                                                                                                                                                    | ES                                                                                                                                                                                                             |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frame 0 preserved in prosody pipeline** – Removed hard-coded deletion of the first row from `*_frame_timestamps.csv` in `process_prosody.R`. With FFmpeg 7.1+, this workaround is no longer needed. | **Preservación del frame 0 en la tubería prosódica** – Se eliminó el borrado forzado de la primera fila de `*_frame_timestamps.csv` en `process_prosody.R`. Con FFmpeg 7.1+, esta solución ya no es necesaria. |
+## 1.1.1 · 2025-06-20
 
-### Fixed / Corregido · 2025-06-23
+### 2025-06-27
 
-| EN                                                                                                                                                                                                                                        | ES                                                                                                                                                                                                                                                                 |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Timestamp field migrated to `pts_time`** – The `ffprobe` call in `parole.sh` now uses `pts_time` instead of `pkt_pts_time` to restore stability under FFmpeg 7.1+, ensuring compatibility across formats and preventing silent failure. | **Campo de marca de tiempo migrado a `pts_time`** – La llamada a `ffprobe` en `parole.sh` ahora utiliza `pts_time` en lugar de `pkt_pts_time` para recuperar estabilidad en FFmpeg 7.1+, garantizando compatibilidad entre formatos y evitando fallos silenciosos. |
+- **EN:** Preserve frame 0 by removing the forced deletion of the first timestamp row; the workaround was no longer needed with FFmpeg 7.1+.
+- **ES:** Conserva el fotograma 0 al eliminar el borrado forzado de la primera fila de tiempos, innecesario con FFmpeg 7.1+.
 
-### Fixed / Corregido · 2025-06-20
+### 2025-06-23
 
-| EN                                                                                                                                                                                                                                                   | ES                                                                                                                                                                                                                                                                          |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Robust timestamp extraction** – The `ffprobe` call in `parole.sh` has been rewritten to emit a clean list of `pkt_pts_time` values, eliminating empty or malformed lines in `*_frame_timestamps.csv`.                                              | **Extracción robusta de marcas de tiempo** – Se ha reescrito la llamada a `ffprobe` en `parole.sh` para que genere una lista limpia de `pkt_pts_time`, evitando líneas vacías o mal formateadas en `*_frame_timestamps.csv`.                                                |
-| **Installer steps restored** – `install_parole.sh` now reliably (re)creates the Python virtual-env `env/pyenv` and installs dependencies from `requirements_python.txt`; the R library folder `env/Rlibs` is likewise re-initialised when requested. | **Pasos del instalador restaurados** – `install_parole.sh` vuelve a (re)crear correctamente el entorno virtual Python `env/pyenv` e instala dependencias desde `requirements_python.txt`; la carpeta de librerías R `env/Rlibs` también se reinicializa cuando se solicita. |
+- **EN:** Switch ffprobe timestamp extraction from `pkt_pts_time` to `pts_time` for FFmpeg 7.1+ compatibility.
+- **ES:** Cambia la extracción de tiempos de ffprobe de `pkt_pts_time` a `pts_time` para compatibilidad con FFmpeg 7.1+.
 
----
+### 2025-06-20
 
-Previous versions are tracked in the project’s Git history.
-Las versiones anteriores se encuentran en el historial Git del proyecto.
-
+- **EN:** Clean up timestamp extraction to avoid empty or malformed rows. Restore creation of the Python environment and dependency installation, and optional reinitialization of the R library directory.
+- **ES:** Corrige la extracción de tiempos para evitar filas vacías o mal formadas. Recupera la creación del entorno Python, instalación de dependencias y reinicialización opcional de la biblioteca de R.
