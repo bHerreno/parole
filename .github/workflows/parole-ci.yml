@@ -2,7 +2,7 @@ name: PAROLE CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "fix/**"]
   pull_request:
     branches: [main]
 
@@ -33,29 +33,26 @@ jobs:
           cache-dependency-path: |
             requirements_python.txt
             requirements_silero_cpu.txt
-
-      # 4) Instalar dependencias Python
-      - name: 📦 Install Python deps
-        run: |
-          python -m pip install --upgrade pip
-
-          # deps para validación final
-          python -m pip install pyarrow pandas
-
-          # deps base del proyecto (SIN torch/torchaudio)
-          python -m pip install -r requirements_python.txt
-
-          # Silero (CPU) — evita wheels CUDA (cu12) gigantes en CI
-          python -m pip install -r requirements_silero_cpu.txt
+            requirements_silero_local.txt
+            requirements_test.txt
 
       # 5) Instalar PAROLE (compila arrow en R dentro del script)
       - name: ⚙️ Install PAROLE (no prompts)
         run: |
-          yes y | bash install_parole.sh
+          bash install_parole.sh <<< "y"
+
+      - name: Install CPU VAD and regression dependencies in PAROLE environment
+        run: |
+          env/pyenv/bin/python -m pip install -r requirements_silero_cpu.txt
+          env/pyenv/bin/python -m pip install -r requirements_silero_local.txt -r requirements_test.txt
+
+      - name: Verify Fritsch-Butland cubic interpolation
+        run: env/pyenv/bin/python -m pytest tests/ -v -s
 
       # 6) Ejecutar un vídeo de prueba por la pipeline
       - name: 🧪 Run test video through PAROLE
         run: |
+          mkdir -p resultados
           chmod +x scripts/parole.sh
           ./scripts/parole.sh \
             data/videos/2016-01-01_0000_US_KNBC_The_Ellen_DeGeneres_Show_91.07-95.45_today.mp4 \
@@ -64,7 +61,7 @@ jobs:
       # 7) Verificar que el Parquet no esté vacío ni lleno de NA
       - name: 🔍 Validate Parquet content
         run: |
-          python - <<'PY'
+          env/pyenv/bin/python - <<'PY'
           import pathlib, sys, pyarrow.parquet as pq
 
           p = pathlib.Path("resultados") / \
@@ -81,6 +78,10 @@ jobs:
 
           if all(col.null_count == tbl.num_rows for col in tbl.itercolumns()):
               sys.exit("Todas las columnas son NA")
+
+          for column in ("vad",):
+              if column not in tbl.column_names or tbl[column].null_count:
+                  sys.exit(f"Missing or null {column}: pipeline did not run completely")
 
           print(f"✔ Parquet válido: {tbl.num_rows} filas, {tbl.num_columns} columnas")
           PY

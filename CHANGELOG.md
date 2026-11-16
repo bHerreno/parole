@@ -1,3 +1,20 @@
+## Sin publicar / Unreleased
+
+### Fixed / Corregido · 2026-11-16
+
+| EN | ES |
+| --- | --- |
+| **Align cubic interpolation with the documented method.** Replace `fmm` (Forsythe–Malcolm–Moler) with explicit Fritsch–Butland PCHIP interior slopes and one-sided endpoint conditions. Preserve per-frame cubic estimates, gap coverage, endpoint polynomial extrapolation and the minimum-track policy. Clarify the historical PDF attribution and C1 continuity in README. No Daedalus linear interpolation is imported. | **Alinear la interpolación cúbica con el método documentado.** Se sustituye `fmm` (Forsythe–Malcolm–Moler) por PCHIP con pendientes interiores de Fritsch–Butland y condiciones unilaterales en extremos. Se conservan las estimaciones por fotograma, la cobertura de huecos, la extrapolación cúbica de bordes y el mínimo de observaciones. README corrige la atribución del PDF y aclara la continuidad C1. No se incorpora la interpolación lineal de Daedalus. |
+| **Pin Praat barren 6.4.60.** Download from the official historical GitHub release for Linux Intel64/ARM64 and verify the local binary version instead of discovering the latest release. | **Fijar Praat barren 6.4.60.** Descarga histórica oficial para Linux Intel64/ARM64 y verificación de la versión local, sin búsqueda de la última release. |
+| **Restore optional local CPU VAD.** Document CPU and runtime requirements; decode normalized WAV through SoundFile to avoid the TorchCodec requirement. Keep CSV headers when no speech is detected. | **Recuperar VAD local opcional en CPU.** Documenta requisitos CPU y de ejecución; lee WAV normalizado con SoundFile para evitar TorchCodec. Conserva cabeceras CSV cuando no se detecta voz. |
+
+### Added / Añadido · 2026-11-16
+
+| EN | ES |
+| --- | --- |
+| **Specific cubic CI tests.** Compare against SciPy PCHIP on irregular grids, plateaus and extrema; check exact knots, frame/gap/edge coverage, no interior overshoot, missing values and a cubic-vs-linear discriminating fixture. Install CPU VAD into PAROLE's actual environment and require populated VAD in the video smoke test. | **Pruebas CI específicas de cúbica.** Comparación con SciPy PCHIP en rejillas irregulares, mesetas y extremos; nodos exactos, cobertura de fotogramas/huecos/bordes, ausencia de sobreoscilación interior y datos ausentes. Un caso distingue cúbica de lineal. CI instala VAD CPU en el entorno real de PAROLE y exige resultados VAD en el vídeo. |
+| **Local audio support.** Include the existing local WAV-input changes alongside MP4 processing. | **Soporte local de audio.** Incorpora los cambios locales existentes para entrada WAV además de MP4. |
+
 ## 1.1.1  ·  2025-06-20
 
 ### Fixed / Corregido · 2025-06-27

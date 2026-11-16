@@ -1,11 +1,74 @@
-> **[2026-01-10] Silero VAD**
->
-> **ES:** Silero VAD presenta actualmente **problemas en la instalación automática** dentro del pipeline.
-> Por este motivo, se considera **opcional** y queda **fuera del CI** por el momento.
->
-> **EN:** Silero VAD currently shows **issues with automated installation** in the pipeline.
-> For this reason, it is treated as **optional** and **out of CI** for now.
+## Actualización local · 2026-11-16 / Local update
 
+### Interpolación cúbica: coherencia entre método y código
+
+La documentación original describía la interpolación cúbica por tramos de
+**Fritsch–Butland**, pero el código seleccionaba `splinefun(method = "fmm")`.
+En R, `fmm` corresponde a **Forsythe–Malcolm–Moler**: son algoritmos distintos.
+Esta actualización alinea la implementación con el método descrito mediante
+PCHIP (Hermite cúbico por tramos), con pendientes interiores de Fritsch–Butland
+y condiciones de extremo unilaterales. Se implementa en R base, sin añadir una
+dependencia de ejecución; SciPy se utiliza exclusivamente como referencia en tests.
+
+Se evalúa la curva en los timestamps reales de ffprobe, conservando una fila
+por fotograma. Los huecos entre observaciones siguen recibiendo estimaciones;
+no se introduce el corte de 0,1 s ni la interpolación lineal de Daedalus.
+Fuera del rango medido se prolonga el polinomio cúbico del primer/último tramo,
+para conservar cobertura en los bordes. La propiedad de no sobreoscilación
+se aplica dentro del rango medido, no a esa extrapolación. Una pista ausente o
+con menos de cuatro observaciones válidas sigue produciendo `NA`, como antes.
+La regla existente que lleva pitch menor de 10 Hz a cero se conserva.
+
+El PDF histórico `_book/Parole--Ecosistema-Funcional.pdf`, sección 5.5.4,
+confunde ambos nombres y atribuye a `fmm` garantías que no ofrece. Esta nota
+corrige esa atribución; PCHIP es continuo con primera derivada continua (C1),
+pero su segunda derivada puede cambiar entre tramos. No es un spline C2.
+
+**EN:** The original documentation intended Fritsch–Butland interpolation,
+but the implementation selected R's `fmm` (Forsythe–Malcolm–Moler).
+We now use explicit piecewise cubic Hermite interpolation (PCHIP), with
+Fritsch–Butland interior derivatives and one-sided endpoint slopes. Real
+ffprobe frame timestamps, gap estimates and cubic endpoint extrapolation are
+preserved. There is no linear replacement or 0.1-second gap cutoff. Shape
+preservation applies within the measured range, not outside it. Missing tracks
+or fewer than four valid observations still yield `NA`; the existing pitch
+below 10 Hz rule is unchanged. The historical PDF's method attribution and
+smoothness statements are superseded by this clarification (PCHIP is C1).
+
+References: [Fritsch–Butland, 1984](https://doi.org/10.1137/0905021),
+[SciPy PCHIP algorithm and endpoint scheme](https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html),
+[R splinefun methods](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/splinefun.html).
+
+### Praat barren 6.4.60
+
+El instalador fija y verifica **Praat barren 6.4.60**, desde la
+[release histórica oficial](https://github.com/praat/praat.github.io/releases/tag/v6.4.60),
+para Linux Intel64 y ARM64. Usa `env/praat/praat` aunque exista otro Praat global.
+**EN:** The installer pins and verifies the local Praat barren 6.4.60 binary
+from the official historical release, independently of system Praat.
+
+### Silero VAD local CPU
+
+Las dependencias CUDA agotaban el espacio de CI; la inferencia CPU funciona
+localmente. Instalar en el entorno que utiliza el pipeline:
+**EN:** CPU inference works locally; CUDA dependencies previously exhausted
+CI disk space. Install into the environment used by the pipeline:
+
+```bash
+[ -d env/pyenv ] || python3 -m venv env/pyenv
+env/pyenv/bin/python -m pip install -r requirements_silero_cpu.txt
+env/pyenv/bin/python -m pip install -r requirements_silero_local.txt
+```
+
+El runner lee WAV mono de 16 kHz mediante SoundFile. El modelo Silero se descarga
+con Torch Hub al primer uso; su referencia `master` aún no está fijada.
+The runner reads normalized mono 16 kHz WAV with SoundFile. Torch Hub downloads
+the model on first use; the Silero `master` reference is not pinned.
+
+El CI del fork instala estas dependencias CPU, contrasta la cúbica de R con
+SciPy y comprueba la salida VAD en un vídeo. No ejecuta las pruebas de
+interpolación lineal de Daedalus. / Fork CI installs CPU dependencies, checks
+R cubic results against SciPy and verifies VAD output on a video.
 
 [➡️ English Version](#english)
 
@@ -24,7 +87,7 @@
 
 <a href="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml">
   <img src="https://github.com/bHerreno/parole/actions/workflows/parole-ci.yml/badge.svg"
-       alt="PAROLE CI (Silero optional / skipped)">
+       alt="PAROLE CI (cubic interpolation and CPU VAD)">
 
 
 </p>
@@ -80,7 +143,7 @@ Ejecuta en una terminal desde la raíz del proyecto:
 bash install_parole.sh
 ```
 
-Esto creará los entornos de Python y R necesarios, instalará Praat (versión barren) localmente y configurará todas las dependencias automáticamente.
+Esto creará los entornos de Python y R necesarios, instalará Praat barren 6.4.60 localmente y configurará las dependencias base. Para Silero, instala además los requisitos CPU y locales indicados arriba.
 
 ---
 
@@ -213,7 +276,7 @@ Run from a terminal at the project's root:
 bash install_parole.sh
 ```
 
-This will set up necessary Python and R environments, install Praat (barren version) locally, and automatically configure all dependencies.
+This will set up necessary Python and R environments, install Praat barren 6.4.60 locally, and configure the base dependencies. For Silero, also install the CPU and local requirements listed above.
 
 ---
 
